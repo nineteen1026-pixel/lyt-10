@@ -1,0 +1,714 @@
+<template>
+  <div class="makeup-page">
+    <div class="page-header">
+      <h2 class="page-title">补卡申请</h2>
+      <p class="page-subtitle">提交补卡申请，修正考勤记录</p>
+    </div>
+
+    <div class="card form-card">
+      <h4 class="card-title">填写补卡信息</h4>
+      <form @submit.prevent="handleSubmit" class="makeup-form">
+        <div class="form-row">
+          <label class="form-label">
+            <span class="label-text">补卡日期</span>
+            <span class="required">*</span>
+          </label>
+          <input
+            v-model="formData.date"
+            type="date"
+            class="form-input"
+            :class="{ error: errors.date }"
+            :max="today"
+          />
+          <span v-if="errors.date" class="error-message">{{ errors.date }}</span>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">
+            <span class="label-text">补卡类型</span>
+            <span class="required">*</span>
+          </label>
+          <div class="radio-group">
+            <label class="radio-item" :class="{ active: formData.type === 'checkin' }">
+              <input
+                v-model="formData.type"
+                type="radio"
+                value="checkin"
+                name="makeupType"
+              />
+              <span class="radio-label">上班补卡</span>
+            </label>
+            <label class="radio-item" :class="{ active: formData.type === 'checkout' }">
+              <input
+                v-model="formData.type"
+                type="radio"
+                value="checkout"
+                name="makeupType"
+              />
+              <span class="radio-label">下班补卡</span>
+            </label>
+          </div>
+          <span v-if="errors.type" class="error-message">{{ errors.type }}</span>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">
+            <span class="label-text">补卡时间</span>
+            <span class="required">*</span>
+          </label>
+          <input
+            v-model="formData.time"
+            type="time"
+            class="form-input"
+            :class="{ error: errors.time }"
+          />
+          <span v-if="errors.time" class="error-message">{{ errors.time }}</span>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">
+            <span class="label-text">补卡原因</span>
+            <span class="required">*</span>
+          </label>
+          <textarea
+            v-model="formData.reason"
+            class="form-textarea"
+            :class="{ error: errors.reason }"
+            placeholder="请详细说明补卡原因..."
+            rows="4"
+          ></textarea>
+          <div class="char-count">{{ formData.reason.length }}/200</div>
+          <span v-if="errors.reason" class="error-message">{{ errors.reason }}</span>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" @click="resetForm">
+            重置
+          </button>
+          <button type="submit" class="btn btn-primary">
+            提交申请
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card records-card">
+      <div class="card-header">
+        <h4 class="card-title">我的补卡申请</h4>
+        <div class="filter-tabs">
+          <span
+            class="tab-item"
+            :class="{ active: activeTab === 'all' }"
+            @click="activeTab = 'all'"
+          >
+            全部
+          </span>
+          <span
+            class="tab-item"
+            :class="{ active: activeTab === 'pending' }"
+            @click="activeTab = 'pending'"
+          >
+            待审批
+          </span>
+          <span
+            class="tab-item"
+            :class="{ active: activeTab === 'approved' }"
+            @click="activeTab = 'approved'"
+          >
+            已通过
+          </span>
+          <span
+            class="tab-item"
+            :class="{ active: activeTab === 'rejected' }"
+            @click="activeTab = 'rejected'"
+          >
+            已拒绝
+          </span>
+        </div>
+      </div>
+
+      <div v-if="filteredRequests.length === 0" class="empty-state">
+        <span class="empty-icon">📋</span>
+        <p>暂无补卡申请记录</p>
+      </div>
+
+      <div v-else class="requests-list">
+        <div
+          v-for="request in filteredRequests"
+          :key="request.id"
+          class="request-item"
+        >
+          <div class="request-header">
+            <div class="request-info">
+              <span class="request-date">{{ request.date }}</span>
+              <span class="request-type" :class="request.type">
+                {{ request.type === 'checkin' ? '上班补卡' : '下班补卡' }}
+              </span>
+              <span class="request-time">{{ request.time }}</span>
+            </div>
+            <span class="request-status" :class="request.status">
+              {{ getStatusText(request.status) }}
+            </span>
+          </div>
+          <div class="request-reason">
+            <span class="reason-label">补卡原因：</span>
+            <span class="reason-text">{{ request.reason }}</span>
+          </div>
+          <div class="request-footer">
+            <span class="request-submit-time">提交时间：{{ request.createdAt }}</span>
+            <div class="request-actions" v-if="request.status === 'pending' && isAdmin">
+              <button class="action-btn approve" @click="approveRequest(request.id)">
+                通过
+              </button>
+              <button class="action-btn reject" @click="rejectRequest(request.id)">
+                拒绝
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, reactive } from 'vue'
+import { useEmployeeStore } from '@/store/employee'
+import { useAttendanceStore } from '@/store/attendance'
+import { getToday } from '@/utils/date'
+
+const employeeStore = useEmployeeStore()
+const attendanceStore = useAttendanceStore()
+
+const today = getToday()
+const activeTab = ref('all')
+const isAdmin = ref(true)
+
+const formData = reactive({
+  date: '',
+  type: 'checkin',
+  time: '',
+  reason: ''
+})
+
+const errors = reactive({
+  date: '',
+  type: '',
+  time: '',
+  reason: ''
+})
+
+const currentUser = computed(() => employeeStore.currentUser)
+
+const myRequests = computed(() => {
+  if (!currentUser.value) return []
+  return attendanceStore.getEmployeeMakeupRequests(currentUser.value.id)
+})
+
+const filteredRequests = computed(() => {
+  if (activeTab.value === 'all') return myRequests.value
+  return myRequests.value.filter(r => r.status === activeTab.value)
+})
+
+function getStatusText(status) {
+  const map = {
+    pending: '待审批',
+    approved: '已通过',
+    rejected: '已拒绝'
+  }
+  return map[status] || status
+}
+
+function validateForm() {
+  let valid = true
+
+  if (!formData.date) {
+    errors.date = '请选择补卡日期'
+    valid = false
+  } else {
+    errors.date = ''
+  }
+
+  if (!formData.type) {
+    errors.type = '请选择补卡类型'
+    valid = false
+  } else {
+    errors.type = ''
+  }
+
+  if (!formData.time) {
+    errors.time = '请选择补卡时间'
+    valid = false
+  } else {
+    errors.time = ''
+  }
+
+  if (!formData.reason.trim()) {
+    errors.reason = '请填写补卡原因'
+    valid = false
+  } else if (formData.reason.length < 10) {
+    errors.reason = '补卡原因至少10个字符'
+    valid = false
+  } else if (formData.reason.length > 200) {
+    errors.reason = '补卡原因不能超过200个字符'
+    valid = false
+  } else {
+    errors.reason = ''
+  }
+
+  return valid
+}
+
+function handleSubmit() {
+  if (!validateForm()) return
+  if (!currentUser.value) {
+    attendanceStore.showToast('请先登录', 'error')
+    return
+  }
+
+  attendanceStore.submitMakeupRequest({
+    employeeId: currentUser.value.id,
+    employeeName: currentUser.value.name,
+    date: formData.date,
+    type: formData.type,
+    time: formData.time,
+    reason: formData.reason.trim()
+  })
+
+  resetForm()
+}
+
+function resetForm() {
+  formData.date = ''
+  formData.type = 'checkin'
+  formData.time = ''
+  formData.reason = ''
+  errors.date = ''
+  errors.type = ''
+  errors.time = ''
+  errors.reason = ''
+}
+
+function approveRequest(id) {
+  attendanceStore.approveMakeupRequest(id)
+}
+
+function rejectRequest(id) {
+  attendanceStore.rejectMakeupRequest(id)
+}
+</script>
+
+<style scoped>
+.makeup-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 8px 0;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: #999;
+  margin: 0;
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 20px 0;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.card-header .card-title {
+  margin: 0;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 8px;
+  background: #f5f7fa;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.tab-item {
+  padding: 6px 16px;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.tab-item:hover {
+  color: #667eea;
+}
+
+.tab-item.active {
+  background: white;
+  color: #667eea;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.makeup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.required {
+  color: #f5222d;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.form-input.error,
+.form-textarea.error {
+  border-color: #f5222d;
+}
+
+.form-textarea {
+  resize: vertical;
+}
+
+.char-count {
+  text-align: right;
+  font-size: 12px;
+  color: #999;
+  margin-top: -4px;
+}
+
+.radio-group {
+  display: flex;
+  gap: 16px;
+}
+
+.radio-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: 2px solid #e8e8e8;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+}
+
+.radio-item:hover {
+  border-color: #667eea;
+}
+
+.radio-item.active {
+  border-color: #667eea;
+  background: #f0f7ff;
+}
+
+.radio-item input[type="radio"] {
+  accent-color: #667eea;
+  width: 16px;
+  height: 16px;
+}
+
+.radio-label {
+  font-size: 14px;
+  color: #333;
+}
+
+.error-message {
+  font-size: 12px;
+  color: #f5222d;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.btn {
+  padding: 12px 32px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+  background: #f5f7fa;
+  color: #666;
+}
+
+.btn-secondary:hover {
+  background: #e8e8e8;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+}
+
+.empty-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.request-item {
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+
+.request-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.request-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.request-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.request-date {
+  font-weight: 600;
+  color: #333;
+}
+
+.request-type {
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.request-type.checkin {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.request-type.checkout {
+  background: #fff7e6;
+  color: #fa8c16;
+}
+
+.request-time {
+  font-size: 13px;
+  color: #666;
+}
+
+.request-status {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.request-status.pending {
+  background: #fffbe6;
+  color: #faad14;
+}
+
+.request-status.approved {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.request-status.rejected {
+  background: #fff1f0;
+  color: #f5222d;
+}
+
+.request-reason {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.reason-label {
+  color: #999;
+}
+
+.request-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid #f5f5f5;
+}
+
+.request-submit-time {
+  font-size: 12px;
+  color: #999;
+}
+
+.request-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn.approve {
+  background: #f6ffed;
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+}
+
+.action-btn.approve:hover {
+  background: #52c41a;
+  color: white;
+}
+
+.action-btn.reject {
+  background: #fff1f0;
+  color: #f5222d;
+  border: 1px solid #ffa39e;
+}
+
+.action-btn.reject:hover {
+  background: #f5222d;
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .radio-group {
+    flex-direction: column;
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filter-tabs {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+
+  .request-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .request-actions {
+    width: 100%;
+  }
+
+  .action-btn {
+    flex: 1;
+    padding: 8px;
+  }
+}
+</style>
