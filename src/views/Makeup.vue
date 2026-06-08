@@ -172,10 +172,13 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
 import { getToday } from '@/utils/date'
+
+const route = useRoute()
 
 const employeeStore = useEmployeeStore()
 const attendanceStore = useAttendanceStore()
@@ -196,6 +199,13 @@ const errors = reactive({
   type: '',
   time: '',
   reason: ''
+})
+
+onMounted(() => {
+  const dateFromQuery = route.query.date
+  if (dateFromQuery && typeof dateFromQuery === 'string') {
+    formData.date = dateFromQuery
+  }
 })
 
 const currentUser = computed(() => employeeStore.currentUser)

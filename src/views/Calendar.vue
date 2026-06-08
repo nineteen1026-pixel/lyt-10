@@ -105,7 +105,8 @@
           :class="{
             empty: !day,
             weekend: day && isWeekend(day.date),
-            today: day && day.date === today
+            today: day && day.date === today,
+            absent: day && calendarData[day.date]?.status === 'absent'
           }"
           @click="day && showDayDetail(day)"
         >
@@ -175,11 +176,20 @@
             <span class="detail-label">补卡说明</span>
             <span class="detail-value makeup">✓ 已通过补卡申请</span>
           </div>
+          <div class="detail-row" v-if="!selectedDayRecord.makeupApproved && selectedDayStatus !== 'normal'">
+            <span class="detail-label">操作</span>
+            <button class="makeup-btn" @click="goToMakeup(selectedDay.date)">
+              申请补卡
+            </button>
+          </div>
         </div>
         <div class="detail-body" v-else>
           <div class="no-record">
             <span class="no-record-icon">📭</span>
             <p>当日无考勤记录</p>
+            <button class="makeup-btn" style="margin-top: 16px;" @click="goToMakeup(selectedDay.date)">
+              申请补卡
+            </button>
           </div>
         </div>
       </div>
@@ -189,10 +199,13 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
 import { getWeekDays, getCalendarDays, formatMonthDisplay, isWeekend, getToday } from '@/utils/date'
-import { getStatusText, getStatusColor, getStatusBgColor, getCheckInStatus, getCheckOutStatus, getDayStatus } from '@/utils/attendance'
+import { getStatusText, getStatusColor, getStatusBgColor, getCheckInStatus, getCheckOutStatus, getDayStatus, ATTENDANCE_STATUS } from '@/utils/attendance'
+
+const router = useRouter()
 
 const employeeStore = useEmployeeStore()
 const attendanceStore = useAttendanceStore()
@@ -254,7 +267,23 @@ function nextMonth() {
 
 function showDayDetail(day) {
   selectedDay.value = day
-  showDetail.value = true
+  const dayStatus = getDayStatus(calendarData.value[day.date]?.record)
+  if (dayStatus === ATTENDANCE_STATUS.ABSENT) {
+    router.push({
+      name: 'Makeup',
+      query: { date: day.date }
+    })
+  } else {
+    showDetail.value = true
+  }
+}
+
+function goToMakeup(date) {
+  showDetail.value = false
+  router.push({
+    name: 'Makeup',
+    query: { date }
+  })
 }
 
 watch(selectedEmployeeId, () => {
@@ -506,6 +535,39 @@ watch(selectedEmployeeId, () => {
   background: #fff0f0;
 }
 
+.calendar-day.absent {
+  cursor: pointer;
+  animation: pulse 2s infinite;
+}
+
+.calendar-day.absent::after {
+  content: '点击补卡';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  color: #f5222d;
+  font-weight: 600;
+  white-space: nowrap;
+  background: rgba(255, 77, 79, 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.calendar-day {
+  position: relative;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 34, 45, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(245, 34, 45, 0.1);
+  }
+}
+
 .day-number {
   font-size: 12px;
   font-weight: 600;
@@ -681,6 +743,25 @@ watch(selectedEmployeeId, () => {
 
 .detail-value.makeup {
   color: #52c41a;
+}
+
+.makeup-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  min-height: 36px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.makeup-btn:active {
+  transform: scale(0.96);
+  opacity: 0.9;
 }
 
 .no-record {
