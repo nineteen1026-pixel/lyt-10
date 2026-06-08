@@ -172,13 +172,14 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, reactive, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
 import { getToday } from '@/utils/date'
 
 const route = useRoute()
+const router = useRouter()
 
 const employeeStore = useEmployeeStore()
 const attendanceStore = useAttendanceStore()
@@ -201,12 +202,30 @@ const errors = reactive({
   reason: ''
 })
 
-onMounted(() => {
+function fillDateFromQuery() {
   const dateFromQuery = route.query.date
   if (dateFromQuery && typeof dateFromQuery === 'string') {
     formData.date = dateFromQuery
   }
+}
+
+onMounted(() => {
+  fillDateFromQuery()
 })
+
+watch(
+  () => route.query.date,
+  (newDate) => {
+    if (newDate && typeof newDate === 'string') {
+      formData.date = newDate
+      formData.time = ''
+      formData.reason = ''
+      errors.date = ''
+      errors.time = ''
+      errors.reason = ''
+    }
+  }
+)
 
 const currentUser = computed(() => employeeStore.currentUser)
 
@@ -269,6 +288,14 @@ function validateForm() {
   return valid
 }
 
+function clearQueryParams() {
+  if (route.query.date) {
+    router.replace({
+      query: {}
+    })
+  }
+}
+
 function handleSubmit() {
   if (!validateForm()) return
   if (!currentUser.value) {
@@ -286,6 +313,7 @@ function handleSubmit() {
   })
 
   resetForm()
+  clearQueryParams()
 }
 
 function resetForm() {
@@ -297,6 +325,7 @@ function resetForm() {
   errors.type = ''
   errors.time = ''
   errors.reason = ''
+  clearQueryParams()
 }
 
 function approveRequest(id) {
