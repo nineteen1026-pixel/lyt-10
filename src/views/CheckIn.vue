@@ -26,7 +26,9 @@
           @click="handleCheckIn"
         >
           <span class="btn-icon">☀️</span>
-          <span class="btn-text">{{ hasCheckedIn ? '已打卡' : '上班打卡' }}</span>
+          <div class="btn-content">
+            <span class="btn-text">{{ hasCheckedIn ? '已打卡' : '上班打卡' }}</span>
+          </div>
           <span v-if="todayRecord?.checkIn" class="btn-time">{{ todayRecord.checkIn }}</span>
         </button>
 
@@ -36,7 +38,9 @@
           @click="handleCheckOut"
         >
           <span class="btn-icon">🌙</span>
-          <span class="btn-text">{{ !canCheckOut ? '请先上班打卡' : hasCheckedOut ? '已打卡' : '下班打卡' }}</span>
+          <div class="btn-content">
+            <span class="btn-text">{{ !canCheckOut ? '请先上班打卡' : hasCheckedOut ? '已打卡' : '下班打卡' }}</span>
+          </div>
           <span v-if="todayRecord?.checkOut" class="btn-time">{{ todayRecord.checkOut }}</span>
         </button>
       </div>
@@ -195,63 +199,86 @@ onUnmounted(() => {
 .checkin-page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .page-header {
   text-align: center;
-  margin-bottom: 10px;
+  margin-bottom: 4px;
 }
 
 .page-title {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
   color: #333;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
 }
 
 .page-subtitle {
-  font-size: 14px;
+  font-size: 13px;
   color: #999;
   margin: 0;
 }
 
 .card {
   background: white;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
 .user-card {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.user-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  pointer-events: none;
 }
 
 .user-avatar-large {
-  font-size: 48px;
-  width: 64px;
-  height: 64px;
+  font-size: 40px;
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
   border-radius: 50%;
+  flex-shrink: 0;
+  backdrop-filter: blur(10px);
+}
+
+.user-info-card {
+  min-width: 0;
+  flex: 1;
 }
 
 .user-info-card .user-name {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   margin: 0 0 4px 0;
 }
 
 .user-info-card .user-dept {
-  font-size: 14px;
+  font-size: 13px;
   opacity: 0.9;
   margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .clock-card {
@@ -259,19 +286,20 @@ onUnmounted(() => {
 }
 
 .current-time {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .time-display {
-  font-size: 48px;
-  font-weight: 300;
+  font-size: 42px;
+  font-weight: 200;
   color: #333;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
+  line-height: 1.1;
 }
 
 .date-display {
-  font-size: 16px;
+  font-size: 14px;
   color: #999;
   margin-top: 8px;
 }
@@ -279,7 +307,7 @@ onUnmounted(() => {
 .checkin-buttons {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 12px;
 }
 
 .checkin-btn {
@@ -287,13 +315,20 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 20px;
+  padding: 20px 16px;
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.15s;
   position: relative;
   overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 120px;
+}
+
+.checkin-btn:active:not(.disabled) {
+  transform: scale(0.98);
 }
 
 .checkin-btn::before {
@@ -303,12 +338,8 @@ onUnmounted(() => {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  transition: left 0.5s;
-}
-
-.checkin-btn:hover::before {
-  left: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  transition: left 0.6s;
 }
 
 .checkin-btn-primary {
@@ -316,82 +347,78 @@ onUnmounted(() => {
   color: white;
 }
 
-.checkin-btn-primary:hover:not(.disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-}
-
 .checkin-btn-secondary {
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
   color: white;
 }
 
-.checkin-btn-secondary:hover:not(.disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(245, 87, 108, 0.4);
-}
-
 .checkin-btn.disabled {
-  background: #d9d9d9;
+  background: linear-gradient(135deg, #d9d9d9 0%, #bfbfbf 100%);
   cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 0.8;
 }
 
 .btn-icon {
-  font-size: 28px;
+  font-size: 32px;
+  line-height: 1;
 }
 
 .btn-text {
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .btn-time {
   font-size: 12px;
-  opacity: 0.9;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 2px 8px;
-  border-radius: 10px;
+  opacity: 0.95;
+  background: rgba(255, 255, 255, 0.25);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 500;
+  backdrop-filter: blur(4px);
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #333;
-  margin: 0 0 16px 0;
+  margin: 0 0 14px 0;
 }
 
 .status-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: 10px;
 }
 
 .status-item {
   text-align: center;
-  padding: 16px 8px;
+  padding: 14px 8px;
   border-radius: 12px;
   background: #fafafa;
+  min-width: 0;
 }
 
 .status-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #999;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .status-value {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  line-height: 1.3;
 }
 
 .status-time {
-  font-size: 11px;
+  font-size: 10px;
   color: #666;
-  padding: 4px 8px;
+  padding: 3px 8px;
   border-radius: 4px;
   display: inline-block;
+  line-height: 1.4;
 }
 
 .status-item.day-status {
@@ -400,62 +427,244 @@ onUnmounted(() => {
 }
 
 .status-item.day-status .status-value {
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .status-item.day-status .status-time {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .worktime-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: 10px;
 }
 
 .worktime-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
+  gap: 10px;
+  padding: 12px 14px;
   background: #fafafa;
   border-radius: 12px;
+  min-width: 0;
 }
 
 .worktime-icon {
-  font-size: 24px;
+  font-size: 22px;
+  flex-shrink: 0;
 }
 
 .worktime-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #999;
 }
 
 .worktime-value {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: #333;
+  white-space: nowrap;
+}
+
+@media (min-width: 769px) {
+  .checkin-btn:hover:not(.disabled) {
+    transition: all 0.3s;
+  }
+
+  .checkin-btn:hover:not(.disabled) {
+    transform: translateY(-2px);
+  }
+
+  .checkin-btn-primary:hover:not(.disabled) {
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+  }
+
+  .checkin-btn-secondary:hover:not(.disabled) {
+    box-shadow: 0 8px 20px rgba(245, 87, 108, 0.4);
+  }
+
+  .checkin-btn:hover::before {
+    left: 100%;
+  }
 }
 
 @media (max-width: 768px) {
+  .checkin-page {
+    gap: 12px;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
+
+  .card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .user-avatar-large {
+    font-size: 36px;
+    width: 52px;
+    height: 52px;
+  }
+
+  .user-info-card .user-name {
+    font-size: 17px;
+  }
+
+  .user-info-card .user-dept {
+    font-size: 12px;
+  }
+
   .checkin-buttons {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .checkin-btn {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 18px 20px;
+    min-height: 80px;
+    text-align: left;
+  }
+
+  .btn-icon {
+    order: 1;
+    font-size: 36px;
+  }
+
+  .btn-content {
+    order: 2;
+    flex: 1;
+    padding: 0 16px;
+    text-align: left;
+  }
+
+  .btn-text {
+    font-size: 16px;
+  }
+
+  .btn-time {
+    order: 3;
   }
 
   .status-grid {
     grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: left;
+    padding: 14px 16px;
+    gap: 16px;
+  }
+
+  .status-item > div:first-child {
+    flex: 1;
+  }
+
+  .status-label {
+    margin-bottom: 4px;
+    font-size: 12px;
+  }
+
+  .status-value {
+    margin-bottom: 0;
+    font-size: 15px;
+  }
+
+  .status-time {
+    order: 3;
+    font-size: 11px;
   }
 
   .status-item.day-status {
     grid-column: span 1;
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+  }
+
+  .status-item.day-status .status-value {
+    font-size: 18px;
   }
 
   .worktime-grid {
     grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .worktime-item {
+    padding: 14px 16px;
   }
 
   .time-display {
-    font-size: 36px;
+    font-size: 42px;
+  }
+
+  .date-display {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-title {
+    font-size: 18px;
+  }
+
+  .checkin-btn {
+    padding: 16px;
+    min-height: 72px;
+  }
+
+  .btn-icon {
+    font-size: 32px;
+  }
+
+  .btn-text {
+    font-size: 15px;
+  }
+
+  .time-display {
+    font-size: 38px;
+    letter-spacing: 0.5px;
+  }
+
+  .user-avatar-large {
+    font-size: 32px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .user-info-card .user-name {
+    font-size: 16px;
+  }
+
+  .status-item {
+    padding: 12px 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  .time-display {
+    font-size: 34px;
+  }
+
+  .btn-content {
+    padding: 0 12px;
+  }
+
+  .btn-icon {
+    font-size: 28px;
+  }
+
+  .worktime-item {
+    padding: 12px;
   }
 }
 </style>

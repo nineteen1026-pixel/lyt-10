@@ -266,62 +266,69 @@ watch(selectedEmployeeId, () => {
 .calendar-page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .page-header {
   text-align: center;
-  margin-bottom: 10px;
+  margin-bottom: 4px;
 }
 
 .page-title {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
   color: #333;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
 }
 
 .page-subtitle {
-  font-size: 14px;
+  font-size: 13px;
   color: #999;
   margin: 0;
 }
 
 .card {
   background: white;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
 .filter-row {
   display: flex;
-  gap: 24px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
 .filter-item {
   flex: 1;
-  min-width: 200px;
+  min-width: 0;
 }
 
 .filter-label {
   display: block;
-  font-size: 13px;
+  font-size: 12px;
   color: #666;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   font-weight: 500;
 }
 
 .filter-select {
   width: 100%;
-  padding: 10px 14px;
+  padding: 10px 36px 10px 12px;
   border: 1px solid #e8e8e8;
   border-radius: 8px;
   font-size: 14px;
   background: white;
   cursor: pointer;
   transition: border-color 0.2s;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  color: #333;
+  min-height: 44px;
 }
 
 .filter-select:focus {
@@ -332,110 +339,123 @@ watch(selectedEmployeeId, () => {
 .month-selector {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
 }
 
 .month-btn {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border: 1px solid #e8e8e8;
   background: white;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s;
-  font-size: 12px;
+  transition: all 0.15s;
+  font-size: 14px;
+  flex-shrink: 0;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
 }
 
-.month-btn:hover {
-  background: #f5f7fa;
+.month-btn:active {
+  background: #f0f7ff;
   border-color: #667eea;
+  transform: scale(0.96);
 }
 
 .month-display {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #333;
-  min-width: 120px;
+  flex: 1;
   text-align: center;
+  white-space: nowrap;
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #333;
-  margin: 0 0 16px 0;
+  margin: 0 0 14px 0;
 }
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 12px;
+  gap: 8px;
 }
 
 .stat-item {
   text-align: center;
-  padding: 16px 8px;
+  padding: 12px 4px;
   background: #fafafa;
-  border-radius: 12px;
+  border-radius: 10px;
+  min-width: 0;
 }
 
 .stat-value {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  line-height: 1.2;
 }
 
 .stat-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #999;
+  white-space: nowrap;
 }
 
 .legend-card {
   display: flex;
-  align-items: center;
-  gap: 24px;
-  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px;
+  flex-direction: column;
 }
 
 .legend-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #333;
+  flex-shrink: 0;
 }
 
 .legend-items {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 16px;
+  width: 100%;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 12px;
   color: #666;
+  white-space: nowrap;
 }
 
 .legend-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .calendar-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  margin-bottom: 8px;
+  gap: 3px;
+  margin-bottom: 6px;
 }
 
 .weekday-header {
   text-align: center;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   color: #999;
-  padding: 8px 0;
+  padding: 6px 0;
 }
 
 .weekday-header:nth-child(1),
@@ -446,23 +466,26 @@ watch(selectedEmployeeId, () => {
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  gap: 3px;
 }
 
 .calendar-day {
   aspect-ratio: 1;
   border-radius: 8px;
-  padding: 8px;
+  padding: 4px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   display: flex;
   flex-direction: column;
   border: 1px solid transparent;
+  min-height: 0;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-.calendar-day:hover:not(.empty) {
-  background: #f5f7fa;
-  border-color: #667eea;
+.calendar-day:active:not(.empty) {
+  transform: scale(0.95);
+  background: #f0f7ff;
 }
 
 .calendar-day.empty {
@@ -472,17 +495,23 @@ watch(selectedEmployeeId, () => {
 
 .calendar-day.today {
   border-color: #667eea;
+  background: #f0f7ff;
 }
 
 .calendar-day.weekend:not(.empty) {
   background: #fff7f7;
 }
 
+.calendar-day.weekend.today {
+  background: #fff0f0;
+}
+
 .day-number {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  line-height: 1;
 }
 
 .weekend .day-number {
@@ -496,12 +525,12 @@ watch(selectedEmployeeId, () => {
 .day-status {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
   border-radius: 4px;
-  padding: 4px;
+  padding: 2px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .day-status.no-record {
@@ -509,14 +538,14 @@ watch(selectedEmployeeId, () => {
 }
 
 .status-indicator {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .status-text {
-  font-size: 10px;
-  font-weight: 500;
+  display: none;
 }
 
 .detail-modal {
@@ -527,62 +556,93 @@ watch(selectedEmployeeId, () => {
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   z-index: 1000;
-  padding: 20px;
 }
 
 .detail-content {
   background: white;
-  border-radius: 16px;
+  border-radius: 20px 20px 0 0;
   width: 100%;
-  max-width: 400px;
-  max-height: 80vh;
+  max-width: 100%;
+  max-height: 85vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 .detail-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  padding: 18px 20px;
   border-bottom: 1px solid #f0f0f0;
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 1;
+}
+
+.detail-header::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 4px;
+  background: #e8e8e8;
+  border-radius: 2px;
 }
 
 .detail-header h3 {
-  margin: 0;
-  font-size: 18px;
+  margin: 8px 0 0 0;
+  font-size: 17px;
   color: #333;
 }
 
 .close-btn {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: none;
   background: #f5f7fa;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px;
   color: #999;
-  transition: all 0.2s;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
 }
 
-.close-btn:hover {
+.close-btn:active {
   background: #e8e8e8;
-  color: #666;
+  transform: scale(0.95);
 }
 
 .detail-body {
-  padding: 24px;
+  padding: 16px 20px 24px;
 }
 
 .detail-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
+  align-items: flex-start;
+  padding: 14px 0;
   border-bottom: 1px solid #f5f5f5;
+  gap: 12px;
 }
 
 .detail-row:last-child {
@@ -592,17 +652,23 @@ watch(selectedEmployeeId, () => {
 .detail-label {
   font-size: 14px;
   color: #999;
+  flex-shrink: 0;
 }
 
 .detail-value {
   font-size: 14px;
   color: #333;
   font-weight: 500;
+  text-align: right;
+  word-break: break-all;
+  line-height: 1.5;
 }
 
 .detail-status {
   font-size: 12px;
-  margin-left: 8px;
+  margin-left: 6px;
+  display: inline-block;
+  margin-top: 2px;
 }
 
 .detail-status-badge {
@@ -610,6 +676,7 @@ watch(selectedEmployeeId, () => {
   border-radius: 12px;
   font-size: 13px;
   font-weight: 500;
+  display: inline-block;
 }
 
 .detail-value.makeup {
@@ -625,7 +692,7 @@ watch(selectedEmployeeId, () => {
 .no-record-icon {
   font-size: 48px;
   display: block;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .no-record p {
@@ -633,36 +700,159 @@ watch(selectedEmployeeId, () => {
   font-size: 14px;
 }
 
+@media (min-width: 769px) {
+  .month-btn:hover {
+    background: #f5f7fa;
+    border-color: #667eea;
+  }
+
+  .calendar-day:hover:not(.empty) {
+    background: #f5f7fa;
+    border-color: #667eea;
+  }
+
+  .detail-modal {
+    align-items: center;
+    padding: 20px;
+  }
+
+  .detail-content {
+    max-width: 420px;
+    border-radius: 16px;
+  }
+
+  .detail-header::before {
+    display: none;
+  }
+
+  .status-text {
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  .day-status {
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
 @media (max-width: 768px) {
+  .calendar-page {
+    gap: 12px;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
+
+  .card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
   .filter-row {
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
+  }
+
+  .filter-item {
+    width: 100%;
+  }
+
+  .filter-select {
+    padding: 10px 36px 10px 14px;
+    font-size: 14px;
   }
 
   .stats-grid {
     grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
   }
 
-  .calendar-day {
-    padding: 4px;
+  .stat-item {
+    padding: 14px 6px;
   }
 
-  .day-number {
-    font-size: 12px;
+  .stat-value {
+    font-size: 22px;
   }
 
-  .status-text {
-    font-size: 8px;
+  .stat-label {
+    font-size: 11px;
   }
 
   .legend-card {
-    flex-direction: column;
-    align-items: flex-start;
     gap: 12px;
   }
 
   .legend-items {
-    gap: 12px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 12px;
+  }
+
+  .legend-item {
+    font-size: 12px;
+  }
+
+  .calendar-day {
+    padding: 3px 2px;
+  }
+
+  .day-number {
+    font-size: 11px;
+  }
+
+  .status-indicator {
+    width: 7px;
+    height: 7px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .stat-item {
+    padding: 12px 6px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+  }
+
+  .legend-items {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .month-display {
+    font-size: 14px;
+    min-width: 100px;
+  }
+
+  .month-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .page-title {
+    font-size: 18px;
+  }
+
+  .page-subtitle {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .day-number {
+    font-size: 10px;
+  }
+
+  .legend-items {
+    grid-template-columns: 1fr;
   }
 }
 </style>
