@@ -133,7 +133,7 @@ export const useAttendanceStore = defineStore('attendance', {
       employeeIds.forEach(empId => {
         const employeeRecords = state.records[empId] || {}
         const stats = calculateAttendanceStats(employeeRecords, year, month)
-        const abnormalCount = stats.late + stats.earlyLeave + stats.absent + stats.makeup
+        const abnormalCount = stats.late + stats.earlyLeave + stats.absent + stats.notChecked + stats.makeup
         if (abnormalCount > 0) {
           const details = []
           for (let day = 1; day <= daysInMonth; day++) {
@@ -142,7 +142,7 @@ export const useAttendanceStore = defineStore('attendance', {
             const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
             const record = employeeRecords[dateStr]
             const status = getDayStatus(record)
-            if (status !== ATTENDANCE_STATUS.NORMAL && status !== ATTENDANCE_STATUS.NOT_CHECKED) {
+            if (status !== ATTENDANCE_STATUS.NORMAL) {
               details.push({ date: dateStr, status, record })
             }
           }

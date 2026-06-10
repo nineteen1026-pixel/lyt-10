@@ -87,6 +87,7 @@
           <span class="legend-item"><span class="legend-dot" style="background:#fa8c16"></span>迟到</span>
           <span class="legend-item"><span class="legend-dot" style="background:#faad14"></span>早退</span>
           <span class="legend-item"><span class="legend-dot" style="background:#f5222d"></span>缺勤</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#bfbfbf"></span>无打卡</span>
           <span class="legend-item"><span class="legend-dot" style="background:#1890ff"></span>补卡</span>
         </div>
         <div class="bar-chart">
@@ -102,6 +103,11 @@
                   class="bar-segment"
                   :style="{ height: getBarHeight(item.makeup, chartMax) + 'px', background: '#1890ff' }"
                   :title="'补卡: ' + item.makeup"
+                ></div>
+                <div
+                  class="bar-segment"
+                  :style="{ height: getBarHeight(item.notChecked, chartMax) + 'px', background: '#bfbfbf' }"
+                  :title="'无打卡: ' + item.notChecked"
                 ></div>
                 <div
                   class="bar-segment"
@@ -147,6 +153,7 @@
               <span v-if="emp.late" class="badge badge-late">迟到 {{ emp.late }}</span>
               <span v-if="emp.earlyLeave" class="badge badge-early">早退 {{ emp.earlyLeave }}</span>
               <span v-if="emp.absent" class="badge badge-absent">缺勤 {{ emp.absent }}</span>
+              <span v-if="emp.notChecked" class="badge badge-notchecked">未打卡 {{ emp.notChecked }}</span>
               <span v-if="emp.makeup" class="badge badge-makeup">补卡 {{ emp.makeup }}</span>
             </div>
             <span class="expand-arrow" :class="{ expanded: expandedEmployee === emp.employeeId }">▼</span>
@@ -229,7 +236,7 @@ const trendData = computed(() => {
 })
 
 const chartMax = computed(() => {
-  const maxVal = Math.max(...trendData.value.map(t => t.late + t.earlyLeave + t.absent + t.makeup), 1)
+  const maxVal = Math.max(...trendData.value.map(t => t.late + t.earlyLeave + t.absent + t.notChecked + t.makeup), 1)
   return Math.ceil(maxVal / 5) * 5
 })
 
@@ -663,6 +670,11 @@ watch(currentYear, () => {
 .badge-makeup {
   background: #e6f7ff;
   color: #1890ff;
+}
+
+.badge-notchecked {
+  background: #f5f5f5;
+  color: #8c8c8c;
 }
 
 .expand-arrow {
