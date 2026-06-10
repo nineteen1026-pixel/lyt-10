@@ -24,6 +24,15 @@ const routes = [
     }
   },
   {
+    path: '/dept-board',
+    name: 'DeptBoard',
+    component: () => import('@/views/DeptBoard.vue'),
+    meta: {
+      title: '部门看板',
+      icon: '📊'
+    }
+  },
+  {
     path: '/makeup',
     name: 'Makeup',
     component: () => import('@/views/Makeup.vue'),

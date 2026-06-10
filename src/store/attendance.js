@@ -99,6 +99,60 @@ export const useAttendanceStore = defineStore('attendance', {
       return calculateAttendanceStats(employeeRecords, year, month)
     },
 
+    getDepartmentMonthStats: (state) => (employeeIds, year, month) => {
+      const combined = { total: 0, normal: 0, late: 0, earlyLeave: 0, absent: 0, notChecked: 0, makeup: 0 }
+      employeeIds.forEach(empId => {
+        const employeeRecords = state.records[empId] || {}
+        const stats = calculateAttendanceStats(employeeRecords, year, month)
+        Object.keys(combined).forEach(key => {
+          combined[key] += stats[key]
+        })
+      })
+      return combined
+    },
+
+    getDepartmentMonthTrend: (state) => (employeeIds, year) => {
+      const trend = []
+      for (let m = 1; m <= 12; m++) {
+        const combined = { total: 0, normal: 0, late: 0, earlyLeave: 0, absent: 0, notChecked: 0, makeup: 0 }
+        employeeIds.forEach(empId => {
+          const employeeRecords = state.records[empId] || {}
+          const stats = calculateAttendanceStats(employeeRecords, year, m)
+          Object.keys(combined).forEach(key => {
+            combined[key] += stats[key]
+          })
+        })
+        trend.push({ month: m, ...combined })
+      }
+      return trend
+    },
+
+    getDepartmentAbnormalEmployees: (state) => (employeeIds, year, month) => {
+      const result = []
+      const daysInMonth = new Date(year, month, 0).getDate()
+      employeeIds.forEach(empId => {
+        const employeeRecords = state.records[empId] || {}
+        const stats = calculateAttendanceStats(employeeRecords, year, month)
+        const abnormalCount = stats.late + stats.earlyLeave + stats.absent + stats.makeup
+        if (abnormalCount > 0) {
+          const details = []
+          for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month - 1, day)
+            if (date.getDay() === 0 || date.getDay() === 6) continue
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+            const record = employeeRecords[dateStr]
+            const status = getDayStatus(record)
+            if (status !== ATTENDANCE_STATUS.NORMAL && status !== ATTENDANCE_STATUS.NOT_CHECKED) {
+              details.push({ date: dateStr, status, record })
+            }
+          }
+          result.push({ employeeId: empId, ...stats, abnormalCount, details })
+        }
+      })
+      result.sort((a, b) => b.abnormalCount - a.abnormalCount)
+      return result
+    },
+
     getEmployeeMakeupRequests: (state) => (employeeId) => {
       return state.makeupRequests.filter(req => req.employeeId === employeeId)
     }
