@@ -125,7 +125,6 @@ export function calculateAttendanceStats(records, year, month) {
     late: 0,
     earlyLeave: 0,
     absent: 0,
-    notChecked: 0,
     makeup: 0
   }
 
@@ -151,10 +150,8 @@ export function calculateAttendanceStats(records, year, month) {
         stats.earlyLeave++
         break
       case ATTENDANCE_STATUS.ABSENT:
-        stats.absent++
-        break
       case ATTENDANCE_STATUS.NOT_CHECKED:
-        stats.notChecked++
+        stats.absent++
         break
       case ATTENDANCE_STATUS.MAKEUP:
         stats.makeup++

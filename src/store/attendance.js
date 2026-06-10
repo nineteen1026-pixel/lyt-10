@@ -100,7 +100,7 @@ export const useAttendanceStore = defineStore('attendance', {
     },
 
     getDepartmentMonthStats: (state) => (employeeIds, year, month) => {
-      const combined = { total: 0, normal: 0, late: 0, earlyLeave: 0, absent: 0, notChecked: 0, makeup: 0 }
+      const combined = { total: 0, normal: 0, late: 0, earlyLeave: 0, absent: 0, makeup: 0 }
       employeeIds.forEach(empId => {
         const employeeRecords = state.records[empId] || {}
         const stats = calculateAttendanceStats(employeeRecords, year, month)
@@ -114,7 +114,7 @@ export const useAttendanceStore = defineStore('attendance', {
     getDepartmentMonthTrend: (state) => (employeeIds, year) => {
       const trend = []
       for (let m = 1; m <= 12; m++) {
-        const combined = { total: 0, normal: 0, late: 0, earlyLeave: 0, absent: 0, notChecked: 0, makeup: 0 }
+        const combined = { total: 0, normal: 0, late: 0, earlyLeave: 0, absent: 0, makeup: 0 }
         employeeIds.forEach(empId => {
           const employeeRecords = state.records[empId] || {}
           const stats = calculateAttendanceStats(employeeRecords, year, m)
@@ -133,7 +133,7 @@ export const useAttendanceStore = defineStore('attendance', {
       employeeIds.forEach(empId => {
         const employeeRecords = state.records[empId] || {}
         const stats = calculateAttendanceStats(employeeRecords, year, month)
-        const abnormalCount = stats.late + stats.earlyLeave + stats.absent + stats.notChecked + stats.makeup
+        const abnormalCount = stats.late + stats.earlyLeave + stats.absent + stats.makeup
         if (abnormalCount > 0) {
           const details = []
           for (let day = 1; day <= daysInMonth; day++) {

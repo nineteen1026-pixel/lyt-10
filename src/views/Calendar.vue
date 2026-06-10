@@ -58,10 +58,6 @@
           <div class="stat-value" style="color: #1890ff">{{ monthStats.makeup }}</div>
           <div class="stat-label">补卡</div>
         </div>
-        <div class="stat-item">
-          <div class="stat-value" style="color: #bfbfbf">{{ monthStats.notChecked }}</div>
-          <div class="stat-label">未打卡</div>
-        </div>
       </div>
     </div>
 
@@ -87,10 +83,6 @@
         <div class="legend-item">
           <span class="legend-dot" style="background: #1890ff"></span>
           <span>补卡</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-dot" style="background: #bfbfbf"></span>
-          <span>未打卡</span>
         </div>
       </div>
     </div>
