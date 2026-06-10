@@ -28,6 +28,10 @@
             </button>
           </div>
         </div>
+        <div class="filter-item filter-actions">
+          <label class="filter-label">&nbsp;</label>
+          <button class="export-btn" @click="exportCSV">导出 CSV</button>
+        </div>
       </div>
     </div>
 
@@ -286,6 +290,41 @@ function goToMakeup(date) {
   })
 }
 
+function exportCSV() {
+  const emp = selectedEmployee.value
+  if (!emp) return
+
+  const year = currentYear.value
+  const month = currentMonth.value
+  const data = attendanceStore.getMonthCalendar(selectedEmployeeId.value, year, month)
+
+  const BOM = '\uFEFF'
+  const header = ['日期', '上班打卡', '下班打卡', '上班时间', '下班时间', '状态'].join(',')
+  const rows = Object.keys(data)
+    .sort()
+    .map(date => {
+      const item = data[date]
+      const record = item.record || {}
+      return [
+        date,
+        record.checkIn || '',
+        record.checkOut || '',
+        record.checkInTime || '',
+        record.checkOutTime || '',
+        getStatusText(item.status)
+      ].join(',')
+    })
+
+  const csv = BOM + header + '\n' + rows.join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${emp.name}_${year}年${String(month).padStart(2, '0')}月_考勤记录.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 watch(selectedEmployeeId, () => {
   showDetail.value = false
 })
@@ -332,6 +371,33 @@ watch(selectedEmployeeId, () => {
 .filter-item {
   flex: 1;
   min-width: 0;
+}
+
+.filter-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+}
+
+.export-btn {
+  height: 44px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.export-btn:active {
+  transform: scale(0.96);
+  opacity: 0.9;
 }
 
 .filter-label {
@@ -785,6 +851,11 @@ watch(selectedEmployeeId, () => {
   .month-btn:hover {
     background: #f5f7fa;
     border-color: #667eea;
+  }
+
+  .export-btn:hover {
+    opacity: 0.9;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
   }
 
   .calendar-day:hover:not(.empty) {
