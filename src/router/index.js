@@ -40,6 +40,15 @@ const routes = [
       title: '补卡申请',
       icon: '📝'
     }
+  },
+  {
+    path: '/leave',
+    name: 'Leave',
+    component: () => import('@/views/Leave.vue'),
+    meta: {
+      title: '请假申请',
+      icon: '🏖️'
+    }
   }
 ]
 

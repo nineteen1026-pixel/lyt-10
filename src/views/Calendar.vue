@@ -58,6 +58,10 @@
           <div class="stat-value" style="color: #1890ff">{{ monthStats.makeup }}</div>
           <div class="stat-label">补卡</div>
         </div>
+        <div class="stat-item">
+          <div class="stat-value" style="color: #722ed1">{{ monthStats.leave }}</div>
+          <div class="stat-label">请假</div>
+        </div>
       </div>
     </div>
 
@@ -83,6 +87,10 @@
         <div class="legend-item">
           <span class="legend-dot" style="background: #1890ff"></span>
           <span>补卡</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot" style="background: #722ed1"></span>
+          <span>请假</span>
         </div>
       </div>
     </div>
@@ -136,32 +144,39 @@
           <button class="close-btn" @click="showDetail = false">✕</button>
         </div>
         <div class="detail-body" v-if="selectedDayRecord">
-          <div class="detail-row">
-            <span class="detail-label">上班打卡</span>
-            <span class="detail-value">
-              {{ selectedDayRecord.checkIn || '-' }}
-              <span v-if="selectedDayRecord.checkIn" class="detail-status" :style="{ color: getStatusColor(getCheckInStatus(selectedDayRecord.checkIn)) }">
-                ({{ getStatusText(getCheckInStatus(selectedDayRecord.checkIn)) }})
+          <div v-if="selectedDayRecord.isLeave" class="leave-detail">
+            <div class="leave-icon">🏖️</div>
+            <div class="leave-title">{{ getLeaveTypeLabel(selectedDayRecord.leaveType) }}</div>
+            <div class="leave-desc">当日请假，已通过审批</div>
+          </div>
+          <template v-else>
+            <div class="detail-row">
+              <span class="detail-label">上班打卡</span>
+              <span class="detail-value">
+                {{ selectedDayRecord.checkIn || '-' }}
+                <span v-if="selectedDayRecord.checkIn" class="detail-status" :style="{ color: getStatusColor(getCheckInStatus(selectedDayRecord.checkIn)) }">
+                  ({{ getStatusText(getCheckInStatus(selectedDayRecord.checkIn)) }})
+                </span>
               </span>
-            </span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">下班打卡</span>
-            <span class="detail-value">
-              {{ selectedDayRecord.checkOut || '-' }}
-              <span v-if="selectedDayRecord.checkOut" class="detail-status" :style="{ color: getStatusColor(getCheckOutStatus(selectedDayRecord.checkOut)) }">
-                ({{ getStatusText(getCheckOutStatus(selectedDayRecord.checkOut)) }})
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">下班打卡</span>
+              <span class="detail-value">
+                {{ selectedDayRecord.checkOut || '-' }}
+                <span v-if="selectedDayRecord.checkOut" class="detail-status" :style="{ color: getStatusColor(getCheckOutStatus(selectedDayRecord.checkOut)) }">
+                  ({{ getStatusText(getCheckOutStatus(selectedDayRecord.checkOut)) }})
+                </span>
               </span>
-            </span>
-          </div>
-          <div class="detail-row" v-if="selectedDayRecord.checkInTime">
-            <span class="detail-label">上班时间</span>
-            <span class="detail-value">{{ selectedDayRecord.checkInTime }}</span>
-          </div>
-          <div class="detail-row" v-if="selectedDayRecord.checkOutTime">
-            <span class="detail-label">下班时间</span>
-            <span class="detail-value">{{ selectedDayRecord.checkOutTime }}</span>
-          </div>
+            </div>
+            <div class="detail-row" v-if="selectedDayRecord.checkInTime">
+              <span class="detail-label">上班时间</span>
+              <span class="detail-value">{{ selectedDayRecord.checkInTime }}</span>
+            </div>
+            <div class="detail-row" v-if="selectedDayRecord.checkOutTime">
+              <span class="detail-label">下班时间</span>
+              <span class="detail-value">{{ selectedDayRecord.checkOutTime }}</span>
+            </div>
+          </template>
           <div class="detail-row">
             <span class="detail-label">当日状态</span>
             <span class="detail-status-badge" :style="{ background: getStatusBgColor(selectedDayStatus), color: getStatusColor(selectedDayStatus) }">
@@ -172,20 +187,30 @@
             <span class="detail-label">补卡说明</span>
             <span class="detail-value makeup">✓ 已通过补卡申请</span>
           </div>
-          <div class="detail-row" v-if="!selectedDayRecord.makeupApproved && selectedDayStatus !== 'normal'">
+          <div class="detail-row" v-if="!selectedDayRecord.isLeave && !selectedDayRecord.makeupApproved && selectedDayStatus !== 'normal'">
             <span class="detail-label">操作</span>
-            <button class="makeup-btn" @click="goToMakeup(selectedDay.date)">
-              申请补卡
-            </button>
+            <div class="detail-actions">
+              <button class="makeup-btn" @click="goToMakeup(selectedDay.date)">
+                申请补卡
+              </button>
+              <button class="leave-btn" @click="goToLeave()">
+                申请请假
+              </button>
+            </div>
           </div>
         </div>
         <div class="detail-body" v-else>
           <div class="no-record">
             <span class="no-record-icon">📭</span>
             <p>当日无考勤记录</p>
-            <button class="makeup-btn" style="margin-top: 16px;" @click="goToMakeup(selectedDay.date)">
-              申请补卡
-            </button>
+            <div class="no-record-actions">
+              <button class="makeup-btn" @click="goToMakeup(selectedDay.date)">
+                申请补卡
+              </button>
+              <button class="leave-btn" @click="goToLeave()">
+                申请请假
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -199,7 +224,7 @@ import { useRouter } from 'vue-router'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
 import { getWeekDays, getCalendarDays, formatMonthDisplay, isWeekend, getToday } from '@/utils/date'
-import { getStatusText, getStatusColor, getStatusBgColor, getCheckInStatus, getCheckOutStatus, getDayStatus, ATTENDANCE_STATUS } from '@/utils/attendance'
+import { getStatusText, getStatusColor, getStatusBgColor, getCheckInStatus, getCheckOutStatus, getDayStatus, getLeaveTypeLabel, ATTENDANCE_STATUS } from '@/utils/attendance'
 
 const router = useRouter()
 
@@ -279,6 +304,13 @@ function goToMakeup(date) {
   router.push({
     name: 'Makeup',
     query: { date }
+  })
+}
+
+function goToLeave() {
+  showDetail.value = false
+  router.push({
+    name: 'Leave'
   })
 }
 
@@ -820,6 +852,64 @@ watch(selectedEmployeeId, () => {
 .makeup-btn:active {
   transform: scale(0.96);
   opacity: 0.9;
+}
+
+.leave-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: linear-gradient(135deg, #722ed1 0%, #9254de 100%);
+  color: white;
+  min-height: 36px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.leave-btn:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.no-record-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.leave-detail {
+  text-align: center;
+  padding: 20px;
+  background: #f9f0ff;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.leave-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.leave-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #722ed1;
+  margin-bottom: 4px;
+}
+
+.leave-desc {
+  font-size: 13px;
+  color: #999;
 }
 
 .no-record {

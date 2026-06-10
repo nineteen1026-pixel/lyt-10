@@ -2,6 +2,7 @@ const STORAGE_KEYS = {
   EMPLOYEES: 'attendance_employees',
   ATTENDANCE_RECORDS: 'attendance_records',
   MAKEUP_REQUESTS: 'makeup_requests',
+  LEAVE_REQUESTS: 'leave_requests',
   CURRENT_USER: 'current_user'
 }
 
@@ -57,6 +58,14 @@ export function getMakeupRequests() {
 
 export function setMakeupRequests(requests) {
   return setStorage(STORAGE_KEYS.MAKEUP_REQUESTS, requests)
+}
+
+export function getLeaveRequests() {
+  return getStorage(STORAGE_KEYS.LEAVE_REQUESTS, [])
+}
+
+export function setLeaveRequests(requests) {
+  return setStorage(STORAGE_KEYS.LEAVE_REQUESTS, requests)
 }
 
 export function getCurrentUser() {

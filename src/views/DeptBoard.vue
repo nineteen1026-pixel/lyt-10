@@ -68,6 +68,10 @@
           <div class="stat-value" style="color: #1890ff">{{ deptStats.makeup }}</div>
           <div class="stat-label">补卡</div>
         </div>
+        <div class="stat-item">
+          <div class="stat-value" style="color: #722ed1">{{ deptStats.leave }}</div>
+          <div class="stat-label">请假</div>
+        </div>
       </div>
       <div class="attendance-rate-bar">
         <div class="rate-label">

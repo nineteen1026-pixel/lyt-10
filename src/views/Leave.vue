@@ -1,0 +1,965 @@
+<template>
+  <div class="leave-page">
+    <div class="page-header">
+      <h2 class="page-title">请假申请</h2>
+      <p class="page-subtitle">提交请假申请，审批通过后自动同步考勤</p>
+    </div>
+
+    <div class="card form-card">
+      <h4 class="card-title">填写请假信息</h4>
+      <form @submit.prevent="handleSubmit" class="leave-form">
+        <div class="form-row">
+          <label class="form-label">
+            <span class="label-text">请假类型</span>
+            <span class="required">*</span>
+          </label>
+          <div class="leave-type-grid">
+            <label
+              v-for="type in leaveTypes"
+              :key="type.value"
+              class="leave-type-item"
+              :class="{ active: formData.leaveType === type.value }"
+            >
+              <input
+                v-model="formData.leaveType"
+                type="radio"
+                :value="type.value"
+                name="leaveType"
+              />
+              <span class="type-dot" :style="{ background: type.color }"></span>
+              <span class="type-label">{{ type.label }}</span>
+            </label>
+          </div>
+          <span v-if="errors.leaveType" class="error-message">{{ errors.leaveType }}</span>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">
+            <span class="label-text">开始日期</span>
+            <span class="required">*</span>
+          </label>
+          <input
+            v-model="formData.startDate"
+            type="date"
+            class="form-input"
+            :class="{ error: errors.startDate }"
+            @change="calculateDays"
+          />
+          <span v-if="errors.startDate" class="error-message">{{ errors.startDate }}</span>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">
+            <span class="label-text">结束日期</span>
+            <span class="required">*</span>
+          </label>
+          <input
+            v-model="formData.endDate"
+            type="date"
+            class="form-input"
+            :class="{ error: errors.endDate }"
+            @change="calculateDays"
+          />
+          <span v-if="errors.endDate" class="error-message">{{ errors.endDate }}</span>
+        </div>
+
+        <div class="form-row" v-if="formData.startDate && formData.endDate">
+          <label class="form-label">
+            <span class="label-text">请假天数</span>
+          </label>
+          <div class="days-display">
+            <span class="days-count">{{ formData.days }}</span>
+            <span class="days-unit">个工作日</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">
+            <span class="label-text">请假原因</span>
+            <span class="required">*</span>
+          </label>
+          <textarea
+            v-model="formData.reason"
+            class="form-textarea"
+            :class="{ error: errors.reason }"
+            placeholder="请详细说明请假原因..."
+            rows="4"
+          ></textarea>
+          <div class="char-count">{{ formData.reason.length }}/500</div>
+          <span v-if="errors.reason" class="error-message">{{ errors.reason }}</span>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" @click="resetForm">
+            重置
+          </button>
+          <button type="submit" class="btn btn-primary">
+            提交申请
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card records-card">
+      <div class="card-header">
+        <h4 class="card-title">我的请假申请</h4>
+        <div class="filter-tabs">
+          <span
+            class="tab-item"
+            :class="{ active: activeTab === 'all' }"
+            @click="activeTab = 'all'"
+          >
+            全部
+          </span>
+          <span
+            class="tab-item"
+            :class="{ active: activeTab === 'pending' }"
+            @click="activeTab = 'pending'"
+          >
+            待审批
+          </span>
+          <span
+            class="tab-item"
+            :class="{ active: activeTab === 'approved' }"
+            @click="activeTab = 'approved'"
+          >
+            已通过
+          </span>
+          <span
+            class="tab-item"
+            :class="{ active: activeTab === 'rejected' }"
+            @click="activeTab = 'rejected'"
+          >
+            已拒绝
+          </span>
+        </div>
+      </div>
+
+      <div v-if="filteredRequests.length === 0" class="empty-state">
+        <span class="empty-icon">📋</span>
+        <p>暂无请假申请记录</p>
+      </div>
+
+      <div v-else class="requests-list">
+        <div
+          v-for="request in filteredRequests"
+          :key="request.id"
+          class="request-item"
+        >
+          <div class="request-header">
+            <div class="request-info">
+              <span
+                class="leave-type-badge"
+                :style="{ background: getLeaveTypeColor(request.leaveType) + '20', color: getLeaveTypeColor(request.leaveType) }"
+              >
+                {{ getLeaveTypeLabel(request.leaveType) }}
+              </span>
+              <span class="request-date">{{ request.startDate }} ~ {{ request.endDate }}</span>
+            </div>
+            <span class="request-status" :class="request.status">
+              {{ getStatusText(request.status) }}
+            </span>
+          </div>
+          <div class="request-days">
+            <span class="days-number">{{ request.days }}</span>
+            <span class="days-text">个工作日</span>
+          </div>
+          <div class="request-reason">
+            <span class="reason-label">请假原因：</span>
+            <span class="reason-text">{{ request.reason }}</span>
+          </div>
+          <div class="request-footer">
+            <span class="request-submit-time">提交时间：{{ request.createdAt }}</span>
+            <div class="request-actions" v-if="request.status === 'pending' && isAdmin">
+              <button class="action-btn approve" @click="approveRequest(request.id)">
+                通过
+              </button>
+              <button class="action-btn reject" @click="rejectRequest(request.id)">
+                拒绝
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, reactive, onMounted } from 'vue'
+import { useEmployeeStore } from '@/store/employee'
+import { useAttendanceStore } from '@/store/attendance'
+import { LEAVE_TYPES, getLeaveTypeLabel } from '@/utils/attendance'
+import { formatDate } from '@/utils/date'
+
+const employeeStore = useEmployeeStore()
+const attendanceStore = useAttendanceStore()
+
+const activeTab = ref('all')
+const isAdmin = ref(true)
+
+const leaveTypes = LEAVE_TYPES
+
+const formData = reactive({
+  leaveType: 'annual',
+  startDate: '',
+  endDate: '',
+  days: 0,
+  reason: ''
+})
+
+const errors = reactive({
+  leaveType: '',
+  startDate: '',
+  endDate: '',
+  reason: ''
+})
+
+const currentUser = computed(() => employeeStore.currentUser)
+
+const myRequests = computed(() => {
+  if (!currentUser.value) return []
+  return attendanceStore.getEmployeeLeaveRequests(currentUser.value.id)
+})
+
+const filteredRequests = computed(() => {
+  if (activeTab.value === 'all') return myRequests.value
+  return myRequests.value.filter(r => r.status === activeTab.value)
+})
+
+function getStatusText(status) {
+  const map = {
+    pending: '待审批',
+    approved: '已通过',
+    rejected: '已拒绝'
+  }
+  return map[status] || status
+}
+
+function getLeaveTypeColor(type) {
+  const leaveType = LEAVE_TYPES.find(t => t.value === type)
+  return leaveType ? leaveType.color : '#999'
+}
+
+function calculateWorkDays(startDate, endDate) {
+  if (!startDate || !endDate) return 0
+
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+
+  if (start > end) return 0
+
+  let count = 0
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const dayOfWeek = d.getDay()
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      count++
+    }
+  }
+
+  return count
+}
+
+function calculateDays() {
+  formData.days = calculateWorkDays(formData.startDate, formData.endDate)
+}
+
+function validateForm() {
+  let valid = true
+
+  if (!formData.leaveType) {
+    errors.leaveType = '请选择请假类型'
+    valid = false
+  } else {
+    errors.leaveType = ''
+  }
+
+  if (!formData.startDate) {
+    errors.startDate = '请选择开始日期'
+    valid = false
+  } else {
+    errors.startDate = ''
+  }
+
+  if (!formData.endDate) {
+    errors.endDate = '请选择结束日期'
+    valid = false
+  } else if (formData.startDate && new Date(formData.endDate) < new Date(formData.startDate)) {
+    errors.endDate = '结束日期不能早于开始日期'
+    valid = false
+  } else {
+    errors.endDate = ''
+  }
+
+  if (!formData.reason.trim()) {
+    errors.reason = '请填写请假原因'
+    valid = false
+  } else if (formData.reason.length < 10) {
+    errors.reason = '请假原因至少10个字符'
+    valid = false
+  } else if (formData.reason.length > 500) {
+    errors.reason = '请假原因不能超过500个字符'
+    valid = false
+  } else {
+    errors.reason = ''
+  }
+
+  return valid
+}
+
+function handleSubmit() {
+  if (!validateForm()) return
+  if (!currentUser.value) {
+    attendanceStore.showToast('请先登录', 'error')
+    return
+  }
+
+  calculateDays()
+
+  attendanceStore.submitLeaveRequest({
+    employeeId: currentUser.value.id,
+    employeeName: currentUser.value.name,
+    leaveType: formData.leaveType,
+    startDate: formData.startDate,
+    endDate: formData.endDate,
+    days: formData.days,
+    reason: formData.reason.trim()
+  })
+
+  resetForm()
+}
+
+function resetForm() {
+  formData.leaveType = 'annual'
+  formData.startDate = ''
+  formData.endDate = ''
+  formData.days = 0
+  formData.reason = ''
+  errors.leaveType = ''
+  errors.startDate = ''
+  errors.endDate = ''
+  errors.reason = ''
+}
+
+function approveRequest(id) {
+  attendanceStore.approveLeaveRequest(id)
+}
+
+function rejectRequest(id) {
+  attendanceStore.rejectLeaveRequest(id)
+}
+</script>
+
+<style scoped>
+.leave-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 6px 0;
+}
+
+.page-subtitle {
+  font-size: 13px;
+  color: #999;
+  margin: 0;
+}
+
+.card {
+  background: white;
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 16px 0;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.card-header .card-title {
+  margin: 0;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 4px;
+  background: #f5f7fa;
+  padding: 4px;
+  border-radius: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.filter-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-item {
+  padding: 8px 14px;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.tab-item:active {
+  background: #e8e8e8;
+}
+
+.tab-item.active {
+  background: white;
+  color: #667eea;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-weight: 500;
+}
+
+.leave-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.required {
+  color: #f5222d;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: border-color 0.15s;
+  font-family: inherit;
+  background: #fafafa;
+  min-height: 48px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-input.error,
+.form-textarea.error {
+  border-color: #f5222d;
+  background: #fff1f0;
+}
+
+.form-input[type="date"] {
+  position: relative;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3crect x='3' y='4' width='18' height='18' rx='2' ry='2'%3e%3c/rect%3e%3cpath d='M16 2v4M8 2v4M3 10h18'%3e%3c/path%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 18px;
+  color: #333;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 100px;
+  line-height: 1.6;
+}
+
+.char-count {
+  text-align: right;
+  font-size: 11px;
+  color: #999;
+  margin-top: -4px;
+}
+
+.leave-type-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.leave-type-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 10px;
+  border: 2px solid #e8e8e8;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: #fafafa;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  position: relative;
+}
+
+.leave-type-item input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.leave-type-item:active {
+  transform: scale(0.98);
+}
+
+.leave-type-item.active {
+  border-color: #667eea;
+  background: #f0f7ff;
+}
+
+.type-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.type-label {
+  font-size: 12px;
+  color: #333;
+  font-weight: 500;
+  text-align: center;
+}
+
+.days-display {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 12px 14px;
+  background: #f0f7ff;
+  border-radius: 10px;
+}
+
+.days-count {
+  font-size: 24px;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.days-unit {
+  font-size: 13px;
+  color: #666;
+}
+
+.error-message {
+  font-size: 12px;
+  color: #f5222d;
+  padding: 4px 4px 0;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.btn {
+  padding: 14px 28px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: 48px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+  box-shadow: 0 1px 4px rgba(102, 126, 234, 0.3);
+}
+
+.btn-secondary {
+  background: #f5f7fa;
+  color: #666;
+  border: 1px solid #e8e8e8;
+}
+
+.btn-secondary:active {
+  background: #e8e8e8;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: #999;
+}
+
+.empty-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.request-item {
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  transition: all 0.15s;
+  background: white;
+}
+
+.request-item:active {
+  background: #fafafa;
+}
+
+.request-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.request-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.leave-type-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.request-date {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.request-days {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.days-number {
+  font-size: 20px;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.days-text {
+  font-size: 12px;
+  color: #666;
+}
+
+.request-status {
+  padding: 4px 12px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.request-status.pending {
+  background: #fffbe6;
+  color: #faad14;
+}
+
+.request-status.approved {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.request-status.rejected {
+  background: #fff1f0;
+  color: #f5222d;
+}
+
+.request-reason {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 10px;
+  word-break: break-word;
+}
+
+.reason-label {
+  color: #999;
+}
+
+.request-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid #f5f5f5;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.request-submit-time {
+  font-size: 11px;
+  color: #999;
+}
+
+.request-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: 36px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.action-btn.approve {
+  background: #f6ffed;
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+}
+
+.action-btn.approve:active {
+  background: #52c41a;
+  color: white;
+}
+
+.action-btn.reject {
+  background: #fff1f0;
+  color: #f5222d;
+  border: 1px solid #ffa39e;
+}
+
+.action-btn.reject:active {
+  background: #f5222d;
+  color: white;
+}
+
+@media (min-width: 769px) {
+  .tab-item:hover {
+    color: #667eea;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+  }
+
+  .btn-secondary:hover {
+    background: #e8e8e8;
+  }
+
+  .leave-type-item:hover {
+    border-color: #667eea;
+  }
+
+  .request-item:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+  }
+
+  .action-btn.approve:hover {
+    background: #52c41a;
+    color: white;
+  }
+
+  .action-btn.reject:hover {
+    background: #f5222d;
+    color: white;
+  }
+}
+
+@media (max-width: 768px) {
+  .leave-page {
+    gap: 12px;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
+
+  .card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .leave-type-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-tabs {
+    width: 100%;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 14px 20px;
+  }
+
+  .request-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .request-actions {
+    width: 100%;
+  }
+
+  .action-btn {
+    flex: 1;
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .form-input,
+  .form-textarea {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-title {
+    font-size: 18px;
+  }
+
+  .page-subtitle {
+    font-size: 12px;
+  }
+
+  .card {
+    padding: 14px;
+  }
+
+  .card-title {
+    font-size: 14px;
+  }
+
+  .tab-item {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .request-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .request-status {
+    align-self: flex-start;
+  }
+
+  .form-label {
+    font-size: 13px;
+  }
+
+  .btn {
+    font-size: 14px;
+  }
+
+  .days-count {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 360px) {
+  .tab-item {
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+
+  .request-info {
+    gap: 6px;
+  }
+
+  .request-date {
+    font-size: 13px;
+  }
+}
+</style>

@@ -7,7 +7,8 @@ export const ATTENDANCE_STATUS = {
   EARLY_LEAVE: 'early_leave',
   ABSENT: 'absent',
   NOT_CHECKED: 'not_checked',
-  MAKEUP: 'makeup'
+  MAKEUP: 'makeup',
+  LEAVE: 'leave'
 }
 
 export const STATUS_TEXT = {
@@ -16,7 +17,8 @@ export const STATUS_TEXT = {
   [ATTENDANCE_STATUS.EARLY_LEAVE]: '早退',
   [ATTENDANCE_STATUS.ABSENT]: '缺勤',
   [ATTENDANCE_STATUS.NOT_CHECKED]: '未打卡',
-  [ATTENDANCE_STATUS.MAKEUP]: '补卡'
+  [ATTENDANCE_STATUS.MAKEUP]: '补卡',
+  [ATTENDANCE_STATUS.LEAVE]: '请假'
 }
 
 export const STATUS_COLOR = {
@@ -25,7 +27,8 @@ export const STATUS_COLOR = {
   [ATTENDANCE_STATUS.EARLY_LEAVE]: '#faad14',
   [ATTENDANCE_STATUS.ABSENT]: '#f5222d',
   [ATTENDANCE_STATUS.NOT_CHECKED]: '#bfbfbf',
-  [ATTENDANCE_STATUS.MAKEUP]: '#1890ff'
+  [ATTENDANCE_STATUS.MAKEUP]: '#1890ff',
+  [ATTENDANCE_STATUS.LEAVE]: '#722ed1'
 }
 
 export const STATUS_BG_COLOR = {
@@ -34,8 +37,20 @@ export const STATUS_BG_COLOR = {
   [ATTENDANCE_STATUS.EARLY_LEAVE]: '#fffbe6',
   [ATTENDANCE_STATUS.ABSENT]: '#fff1f0',
   [ATTENDANCE_STATUS.NOT_CHECKED]: '#fafafa',
-  [ATTENDANCE_STATUS.MAKEUP]: '#e6f7ff'
+  [ATTENDANCE_STATUS.MAKEUP]: '#e6f7ff',
+  [ATTENDANCE_STATUS.LEAVE]: '#f9f0ff'
 }
+
+export const LEAVE_TYPES = [
+  { value: 'annual', label: '年假', color: '#722ed1' },
+  { value: 'sick', label: '病假', color: '#eb2f96' },
+  { value: 'personal', label: '事假', color: '#fa8c16' },
+  { value: 'marriage', label: '婚假', color: '#f5222d' },
+  { value: 'maternity', label: '产假', color: '#52c41a' },
+  { value: 'paternity', label: '陪产假', color: '#1890ff' },
+  { value: 'funeral', label: '丧假', color: '#595959' },
+  { value: 'other', label: '其他', color: '#8c8c8c' }
+]
 
 export function getCheckInStatus(checkInTime) {
   if (!checkInTime) return ATTENDANCE_STATUS.NOT_CHECKED
@@ -66,6 +81,10 @@ export function getCheckOutStatus(checkOutTime) {
 export function getDayStatus(record) {
   if (!record) return ATTENDANCE_STATUS.NOT_CHECKED
 
+  if (record.isLeave) {
+    return ATTENDANCE_STATUS.LEAVE
+  }
+
   if (record.makeupApproved) {
     return ATTENDANCE_STATUS.MAKEUP
   }
@@ -87,6 +106,11 @@ export function getDayStatus(record) {
   }
 
   return ATTENDANCE_STATUS.NOT_CHECKED
+}
+
+export function getLeaveTypeLabel(type) {
+  const leaveType = LEAVE_TYPES.find(t => t.value === type)
+  return leaveType ? leaveType.label : type
 }
 
 export function getStatusText(status) {
@@ -125,7 +149,8 @@ export function calculateAttendanceStats(records, year, month) {
     late: 0,
     earlyLeave: 0,
     absent: 0,
-    makeup: 0
+    makeup: 0,
+    leave: 0
   }
 
   const daysInMonth = new Date(year, month, 0).getDate()
@@ -155,6 +180,9 @@ export function calculateAttendanceStats(records, year, month) {
         break
       case ATTENDANCE_STATUS.MAKEUP:
         stats.makeup++
+        break
+      case ATTENDANCE_STATUS.LEAVE:
+        stats.leave++
         break
     }
   }

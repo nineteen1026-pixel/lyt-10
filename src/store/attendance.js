@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
-import { getAttendanceRecords, setAttendanceRecords, getMakeupRequests, setMakeupRequests } from '@/utils/storage'
+import { getAttendanceRecords, setAttendanceRecords, getMakeupRequests, setMakeupRequests, getLeaveRequests, setLeaveRequests } from '@/utils/storage'
 import { getToday, getCurrentTime, getNow, formatDate } from '@/utils/date'
-import { getCheckInStatus, getCheckOutStatus, getDayStatus, generateMonthCalendarData, calculateAttendanceStats, ATTENDANCE_STATUS } from '@/utils/attendance'
+import { getCheckInStatus, getCheckOutStatus, getDayStatus, generateMonthCalendarData, calculateAttendanceStats, ATTENDANCE_STATUS, LEAVE_TYPES, getLeaveTypeLabel } from '@/utils/attendance'
 
 function generateMockRecords() {
   const records = {}
@@ -57,6 +57,7 @@ export const useAttendanceStore = defineStore('attendance', {
   state: () => ({
     records: {},
     makeupRequests: [],
+    leaveRequests: [],
     toast: {
       show: false,
       message: '',
@@ -155,7 +156,17 @@ export const useAttendanceStore = defineStore('attendance', {
 
     getEmployeeMakeupRequests: (state) => (employeeId) => {
       return state.makeupRequests.filter(req => req.employeeId === employeeId)
-    }
+    },
+
+    getEmployeeLeaveRequests: (state) => (employeeId) => {
+      return state.leaveRequests.filter(req => req.employeeId === employeeId)
+    },
+
+    getApprovedLeaveRequests: (state) => (employeeId) => {
+      return state.leaveRequests.filter(req => req.employeeId === employeeId && req.status === 'approved')
+    },
+
+    leaveTypes: () => LEAVE_TYPES
   },
 
   actions: {
@@ -170,6 +181,9 @@ export const useAttendanceStore = defineStore('attendance', {
 
       const storedRequests = getMakeupRequests()
       this.makeupRequests = storedRequests
+
+      const storedLeaveRequests = getLeaveRequests()
+      this.leaveRequests = storedLeaveRequests
     },
 
     saveRecordsToStorage() {
@@ -178,6 +192,10 @@ export const useAttendanceStore = defineStore('attendance', {
 
     saveMakeupRequestsToStorage() {
       setMakeupRequests(this.makeupRequests)
+    },
+
+    saveLeaveRequestsToStorage() {
+      setLeaveRequests(this.leaveRequests)
     },
 
     showToast(message, type = 'success') {
@@ -310,6 +328,69 @@ export const useAttendanceStore = defineStore('attendance', {
         request.reviewedAt = getNow()
         this.saveMakeupRequestsToStorage()
         this.showToast('补卡申请已拒绝', 'warning')
+      }
+    },
+
+    submitLeaveRequest(data) {
+      const request = {
+        id: 'LR' + Date.now(),
+        employeeId: data.employeeId,
+        employeeName: data.employeeName,
+        leaveType: data.leaveType,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        days: data.days,
+        reason: data.reason,
+        status: 'pending',
+        createdAt: getNow()
+      }
+
+      this.leaveRequests.unshift(request)
+      this.saveLeaveRequestsToStorage()
+      this.showToast('请假申请已提交，等待审批', 'success')
+
+      return request
+    },
+
+    approveLeaveRequest(requestId) {
+      const request = this.leaveRequests.find(r => r.id === requestId)
+      if (request) {
+        request.status = 'approved'
+        request.reviewedAt = getNow()
+
+        if (!this.records[request.employeeId]) {
+          this.records[request.employeeId] = {}
+        }
+
+        const startDate = new Date(request.startDate)
+        const endDate = new Date(request.endDate)
+
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+          const dateStr = formatDate(d, 'YYYY-MM-DD')
+          const dayOfWeek = d.getDay()
+          if (dayOfWeek === 0 || dayOfWeek === 6) continue
+
+          if (!this.records[request.employeeId][dateStr]) {
+            this.records[request.employeeId][dateStr] = {}
+          }
+          this.records[request.employeeId][dateStr].isLeave = true
+          this.records[request.employeeId][dateStr].leaveType = request.leaveType
+          this.records[request.employeeId][dateStr].leaveRequestId = request.id
+        }
+
+        this.saveRecordsToStorage()
+        this.saveLeaveRequestsToStorage()
+        this.showToast('请假申请已通过', 'success')
+      }
+    },
+
+    rejectLeaveRequest(requestId) {
+      const request = this.leaveRequests.find(r => r.id === requestId)
+      if (request) {
+        request.status = 'rejected'
+        request.reviewedAt = getNow()
+        this.saveLeaveRequestsToStorage()
+        this.showToast('请假申请已拒绝', 'warning')
       }
     }
   }
