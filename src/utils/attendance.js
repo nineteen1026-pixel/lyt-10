@@ -52,6 +52,136 @@ export const LEAVE_TYPES = [
   { value: 'other', label: '其他', color: '#8c8c8c' }
 ]
 
+export const OVERTIME_TYPES = [
+  { value: 'weekday', label: '工作日加班', color: '#fa8c16', rate: 1.5 },
+  { value: 'weekend', label: '周末加班', color: '#722ed1', rate: 2.0 },
+  { value: 'holiday', label: '法定节假日加班', color: '#f5222d', rate: 3.0 }
+]
+
+export const APPROVAL_STAGES = [
+  { id: 'supervisor', name: '直属领导', order: 1 },
+  { id: 'manager', name: '部门经理', order: 2 },
+  { id: 'hr', name: '人事审批', order: 3 }
+]
+
+export const OVERTIME_STATUS = {
+  PENDING_SUPERVISOR: 'pending_supervisor',
+  APPROVED_SUPERVISOR: 'approved_supervisor',
+  REJECTED_SUPERVISOR: 'rejected_supervisor',
+  PENDING_MANAGER: 'pending_manager',
+  APPROVED_MANAGER: 'approved_manager',
+  REJECTED_MANAGER: 'rejected_manager',
+  PENDING_HR: 'pending_hr',
+  APPROVED: 'approved',
+  REJECTED_HR: 'rejected_hr'
+}
+
+export const OVERTIME_STATUS_TEXT = {
+  [OVERTIME_STATUS.PENDING_SUPERVISOR]: '待直属领导审批',
+  [OVERTIME_STATUS.APPROVED_SUPERVISOR]: '直属领导已通过',
+  [OVERTIME_STATUS.REJECTED_SUPERVISOR]: '直属领导已拒绝',
+  [OVERTIME_STATUS.PENDING_MANAGER]: '待部门经理审批',
+  [OVERTIME_STATUS.APPROVED_MANAGER]: '部门经理已通过',
+  [OVERTIME_STATUS.REJECTED_MANAGER]: '部门经理已拒绝',
+  [OVERTIME_STATUS.PENDING_HR]: '待人事审批',
+  [OVERTIME_STATUS.APPROVED]: '已通过',
+  [OVERTIME_STATUS.REJECTED_HR]: '人事已拒绝'
+}
+
+export const OVERTIME_STATUS_COLOR = {
+  [OVERTIME_STATUS.PENDING_SUPERVISOR]: '#faad14',
+  [OVERTIME_STATUS.APPROVED_SUPERVISOR]: '#1890ff',
+  [OVERTIME_STATUS.REJECTED_SUPERVISOR]: '#f5222d',
+  [OVERTIME_STATUS.PENDING_MANAGER]: '#faad14',
+  [OVERTIME_STATUS.APPROVED_MANAGER]: '#1890ff',
+  [OVERTIME_STATUS.REJECTED_MANAGER]: '#f5222d',
+  [OVERTIME_STATUS.PENDING_HR]: '#faad14',
+  [OVERTIME_STATUS.APPROVED]: '#52c41a',
+  [OVERTIME_STATUS.REJECTED_HR]: '#f5222d'
+}
+
+export function getOvertimeTypeLabel(type) {
+  const overtimeType = OVERTIME_TYPES.find(t => t.value === type)
+  return overtimeType ? overtimeType.label : type
+}
+
+export function getOvertimeTypeColor(type) {
+  const overtimeType = OVERTIME_TYPES.find(t => t.value === type)
+  return overtimeType ? overtimeType.color : '#999'
+}
+
+export function getOvertimeTypeRate(type) {
+  const overtimeType = OVERTIME_TYPES.find(t => t.value === type)
+  return overtimeType ? overtimeType.rate : 1
+}
+
+export function getOvertimeStatusText(status) {
+  return OVERTIME_STATUS_TEXT[status] || status
+}
+
+export function getOvertimeStatusColor(status) {
+  return OVERTIME_STATUS_COLOR[status] || '#999'
+}
+
+export function getNextApprovalStage(currentStatus) {
+  const stageMap = {
+    [OVERTIME_STATUS.PENDING_SUPERVISOR]: APPROVAL_STAGES[0],
+    [OVERTIME_STATUS.APPROVED_SUPERVISOR]: APPROVAL_STAGES[1],
+    [OVERTIME_STATUS.PENDING_MANAGER]: APPROVAL_STAGES[1],
+    [OVERTIME_STATUS.APPROVED_MANAGER]: APPROVAL_STAGES[2],
+    [OVERTIME_STATUS.PENDING_HR]: APPROVAL_STAGES[2]
+  }
+  return stageMap[currentStatus] || null
+}
+
+export function isOvertimeFinalApproved(status) {
+  return status === OVERTIME_STATUS.APPROVED
+}
+
+export function isOvertimeRejected(status) {
+  return [
+    OVERTIME_STATUS.REJECTED_SUPERVISOR,
+    OVERTIME_STATUS.REJECTED_MANAGER,
+    OVERTIME_STATUS.REJECTED_HR
+  ].includes(status)
+}
+
+export function getOvertimeApprovalProgress(status) {
+  if (isOvertimeRejected(status)) {
+    return { current: 0, total: 3, completed: 0 }
+  }
+  
+  const progressMap = {
+    [OVERTIME_STATUS.PENDING_SUPERVISOR]: 0,
+    [OVERTIME_STATUS.APPROVED_SUPERVISOR]: 1,
+    [OVERTIME_STATUS.PENDING_MANAGER]: 1,
+    [OVERTIME_STATUS.APPROVED_MANAGER]: 2,
+    [OVERTIME_STATUS.PENDING_HR]: 2,
+    [OVERTIME_STATUS.APPROVED]: 3
+  }
+  
+  const current = progressMap[status] || 0
+  return {
+    current,
+    total: 3,
+    completed: current
+  }
+}
+
+export function calculateOvertimeHours(startTime, endTime, type) {
+  if (!startTime || !endTime) return 0
+  
+  const start = parseTime(startTime)
+  const end = parseTime(endTime)
+  
+  if (end <= start) return 0
+  
+  const rate = getOvertimeTypeRate(type)
+  const hours = (end - start) / 60
+  
+  return Math.round(hours * rate * 100) / 100
+}
+
 export function getCheckInStatus(checkInTime) {
   if (!checkInTime) return ATTENDANCE_STATUS.NOT_CHECKED
 

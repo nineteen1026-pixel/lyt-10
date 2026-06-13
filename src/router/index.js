@@ -49,6 +49,15 @@ const routes = [
       title: '请假申请',
       icon: '🏖️'
     }
+  },
+  {
+    path: '/overtime',
+    name: 'Overtime',
+    component: () => import('@/views/Overtime.vue'),
+    meta: {
+      title: '加班申请',
+      icon: '⏱️'
+    }
   }
 ]
 

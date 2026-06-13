@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
-import { getAttendanceRecords, setAttendanceRecords, getMakeupRequests, setMakeupRequests, getLeaveRequests, setLeaveRequests } from '@/utils/storage'
-import { getToday, getCurrentTime, getNow, formatDate } from '@/utils/date'
-import { getCheckInStatus, getCheckOutStatus, getDayStatus, generateMonthCalendarData, calculateAttendanceStats, ATTENDANCE_STATUS, LEAVE_TYPES, getLeaveTypeLabel } from '@/utils/attendance'
+import { getAttendanceRecords, setAttendanceRecords, getMakeupRequests, setMakeupRequests, getLeaveRequests, setLeaveRequests, getOvertimeRequests, setOvertimeRequests } from '@/utils/storage'
+import { getToday, getCurrentTime, getNow, formatDate, parseTime } from '@/utils/date'
+import { getCheckInStatus, getCheckOutStatus, getDayStatus, generateMonthCalendarData, calculateAttendanceStats, ATTENDANCE_STATUS, LEAVE_TYPES, getLeaveTypeLabel, OVERTIME_STATUS, OVERTIME_TYPES, getOvertimeStatusText, getOvertimeTypeLabel, isOvertimeFinalApproved, isOvertimeRejected, calculateOvertimeHours } from '@/utils/attendance'
 
 function generateMockRecords() {
   const records = {}
@@ -58,6 +58,7 @@ export const useAttendanceStore = defineStore('attendance', {
     records: {},
     makeupRequests: [],
     leaveRequests: [],
+    overtimeRequests: [],
     toast: {
       show: false,
       message: '',
@@ -166,6 +167,40 @@ export const useAttendanceStore = defineStore('attendance', {
       return state.leaveRequests.filter(req => req.employeeId === employeeId && req.status === 'approved')
     },
 
+    getEmployeeOvertimeRequests: (state) => (employeeId) => {
+      return state.overtimeRequests.filter(req => req.employeeId === employeeId)
+    },
+
+    getPendingOvertimeRequests: (state) => (approverRole = null) => {
+      let pending = state.overtimeRequests.filter(req => {
+        if (isOvertimeRejected(req.status)) return false
+        if (isOvertimeFinalApproved(req.status)) return false
+        return true
+      })
+      
+      if (approverRole) {
+        const roleStatusMap = {
+          supervisor: OVERTIME_STATUS.PENDING_SUPERVISOR,
+          manager: OVERTIME_STATUS.PENDING_MANAGER,
+          hr: OVERTIME_STATUS.PENDING_HR
+        }
+        const targetStatus = roleStatusMap[approverRole]
+        if (targetStatus) {
+          pending = pending.filter(req => req.status === targetStatus)
+        }
+      }
+      
+      return pending
+    },
+
+    getApprovedOvertimeRequests: (state) => (employeeId) => {
+      return state.overtimeRequests.filter(req => 
+        req.employeeId === employeeId && isOvertimeFinalApproved(req.status)
+      )
+    },
+
+    overtimeTypes: () => OVERTIME_TYPES,
+
     leaveTypes: () => LEAVE_TYPES
   },
 
@@ -184,6 +219,9 @@ export const useAttendanceStore = defineStore('attendance', {
 
       const storedLeaveRequests = getLeaveRequests()
       this.leaveRequests = storedLeaveRequests
+
+      const storedOvertimeRequests = getOvertimeRequests()
+      this.overtimeRequests = storedOvertimeRequests
     },
 
     saveRecordsToStorage() {
@@ -196,6 +234,10 @@ export const useAttendanceStore = defineStore('attendance', {
 
     saveLeaveRequestsToStorage() {
       setLeaveRequests(this.leaveRequests)
+    },
+
+    saveOvertimeRequestsToStorage() {
+      setOvertimeRequests(this.overtimeRequests)
     },
 
     showToast(message, type = 'success') {
@@ -392,6 +434,125 @@ export const useAttendanceStore = defineStore('attendance', {
         this.saveLeaveRequestsToStorage()
         this.showToast('请假申请已拒绝', 'warning')
       }
+    },
+
+    submitOvertimeRequest(data) {
+      const calculatedHours = calculateOvertimeHours(data.startTime, data.endTime, data.overtimeType)
+      
+      const request = {
+        id: 'OT' + Date.now(),
+        employeeId: data.employeeId,
+        employeeName: data.employeeName,
+        department: data.department,
+        overtimeType: data.overtimeType,
+        date: data.date,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        workHours: ((parseTime(data.endTime) - parseTime(data.startTime)) / 60).toFixed(2),
+        overtimeHours: calculatedHours,
+        reason: data.reason,
+        status: OVERTIME_STATUS.PENDING_SUPERVISOR,
+        approvalHistory: [],
+        createdAt: getNow()
+      }
+
+      this.overtimeRequests.unshift(request)
+      this.saveOvertimeRequestsToStorage()
+      this.showToast('加班申请已提交，等待直属领导审批', 'success')
+
+      return request
+    },
+
+    approveOvertimeRequest(requestId, approverRole, approverName) {
+      const request = this.overtimeRequests.find(r => r.id === requestId)
+      if (!request) return
+
+      const approvalRecord = {
+        role: approverRole,
+        name: approverName,
+        action: 'approve',
+        time: getNow()
+      }
+
+      request.approvalHistory.push(approvalRecord)
+
+      const statusFlow = {
+        [OVERTIME_STATUS.PENDING_SUPERVISOR]: {
+          next: OVERTIME_STATUS.PENDING_MANAGER,
+          message: '直属领导已通过，等待部门经理审批'
+        },
+        [OVERTIME_STATUS.PENDING_MANAGER]: {
+          next: OVERTIME_STATUS.PENDING_HR,
+          message: '部门经理已通过，等待人事审批'
+        },
+        [OVERTIME_STATUS.PENDING_HR]: {
+          next: OVERTIME_STATUS.APPROVED,
+          message: '加班申请已通过，工时已同步'
+        }
+      }
+
+      const flow = statusFlow[request.status]
+      if (flow) {
+        request.status = flow.next
+        request.reviewedAt = getNow()
+
+        if (flow.next === OVERTIME_STATUS.APPROVED) {
+          this.syncOvertimeToAttendance(request)
+        }
+
+        this.saveOvertimeRequestsToStorage()
+        this.showToast(flow.message, 'success')
+      }
+    },
+
+    rejectOvertimeRequest(requestId, approverRole, approverName) {
+      const request = this.overtimeRequests.find(r => r.id === requestId)
+      if (!request) return
+
+      const approvalRecord = {
+        role: approverRole,
+        name: approverName,
+        action: 'reject',
+        time: getNow()
+      }
+
+      request.approvalHistory.push(approvalRecord)
+
+      const rejectStatusMap = {
+        [OVERTIME_STATUS.PENDING_SUPERVISOR]: OVERTIME_STATUS.REJECTED_SUPERVISOR,
+        [OVERTIME_STATUS.PENDING_MANAGER]: OVERTIME_STATUS.REJECTED_MANAGER,
+        [OVERTIME_STATUS.PENDING_HR]: OVERTIME_STATUS.REJECTED_HR
+      }
+
+      const rejectStatus = rejectStatusMap[request.status]
+      if (rejectStatus) {
+        request.status = rejectStatus
+        request.reviewedAt = getNow()
+        this.saveOvertimeRequestsToStorage()
+        this.showToast('加班申请已拒绝', 'warning')
+      }
+    },
+
+    syncOvertimeToAttendance(request) {
+      if (!isOvertimeFinalApproved(request.status)) return
+
+      if (!this.records[request.employeeId]) {
+        this.records[request.employeeId] = {}
+      }
+
+      if (!this.records[request.employeeId][request.date]) {
+        this.records[request.employeeId][request.date] = {}
+      }
+
+      const dateRecord = this.records[request.employeeId][request.date]
+      dateRecord.isOvertime = true
+      dateRecord.overtimeType = request.overtimeType
+      dateRecord.overtimeHours = request.overtimeHours
+      dateRecord.overtimeRequestId = request.id
+      dateRecord.overtimeStartTime = request.startTime
+      dateRecord.overtimeEndTime = request.endTime
+
+      this.saveRecordsToStorage()
     }
   }
 })
