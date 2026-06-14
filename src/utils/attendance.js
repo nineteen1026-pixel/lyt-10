@@ -422,3 +422,105 @@ export function getDayStatusWithShift(record, shiftType) {
 
   return ATTENDANCE_STATUS.NOT_CHECKED
 }
+
+export function generateMonthCalendarDataWithShift(records, year, month, shiftMap) {
+  const result = {}
+  const daysInMonth = new Date(year, month, 0).getDate()
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    const record = records[dateStr]
+    const shiftType = (shiftMap && shiftMap[dateStr]) || 'standard'
+    result[dateStr] = {
+      date: dateStr,
+      record,
+      shiftType,
+      status: getDayStatusWithShift(record, shiftType)
+    }
+  }
+
+  return result
+}
+
+export function calculateAttendanceStatsWithShift(records, year, month, shiftMap) {
+  const stats = {
+    total: 0,
+    normal: 0,
+    late: 0,
+    earlyLeave: 0,
+    absent: 0,
+    makeup: 0,
+    leave: 0,
+    overtime: 0,
+    overtimeHours: 0,
+    weekdayOvertimeHours: 0,
+    weekendOvertimeHours: 0,
+    holidayOvertimeHours: 0
+  }
+
+  const daysInMonth = new Date(year, month, 0).getDate()
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(year, month - 1, day)
+    const isWeekend = date.getDay() === 0 || date.getDay() === 6
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    const shiftType = (shiftMap && shiftMap[dateStr]) || 'standard'
+
+    if (shiftType !== 'rest' && !isWeekend) {
+      stats.total++
+    } else if (shiftType !== 'rest' && isWeekend && shiftMap && shiftMap[dateStr]) {
+      stats.total++
+    }
+
+    const record = records[dateStr]
+    const status = getDayStatusWithShift(record, shiftType)
+
+    if (record && record.isOvertime && record.overtimeHours) {
+      stats.overtime++
+      const otHours = parseFloat(record.overtimeHours) || 0
+      stats.overtimeHours += otHours
+
+      if (record.overtimeType === 'weekday') {
+        stats.weekdayOvertimeHours += otHours
+      } else if (record.overtimeType === 'weekend') {
+        stats.weekendOvertimeHours += otHours
+      } else if (record.overtimeType === 'holiday') {
+        stats.holidayOvertimeHours += otHours
+      }
+    }
+
+    if (shiftType === 'rest' && !record) continue
+
+    switch (status) {
+      case ATTENDANCE_STATUS.NORMAL:
+        stats.normal++
+        break
+      case ATTENDANCE_STATUS.LATE:
+        stats.late++
+        break
+      case ATTENDANCE_STATUS.EARLY_LEAVE:
+        stats.earlyLeave++
+        break
+      case ATTENDANCE_STATUS.ABSENT:
+      case ATTENDANCE_STATUS.NOT_CHECKED:
+        if (shiftType !== 'rest') stats.absent++
+        break
+      case ATTENDANCE_STATUS.MAKEUP:
+        stats.makeup++
+        break
+      case ATTENDANCE_STATUS.LEAVE:
+        stats.leave++
+        break
+      case ATTENDANCE_STATUS.OVERTIME:
+        stats.normal++
+        break
+    }
+  }
+
+  stats.overtimeHours = Math.round(stats.overtimeHours * 100) / 100
+  stats.weekdayOvertimeHours = Math.round(stats.weekdayOvertimeHours * 100) / 100
+  stats.weekendOvertimeHours = Math.round(stats.weekendOvertimeHours * 100) / 100
+  stats.holidayOvertimeHours = Math.round(stats.holidayOvertimeHours * 100) / 100
+
+  return stats
+}

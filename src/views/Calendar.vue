@@ -180,12 +180,21 @@
             <div class="leave-desc">当日请假，已通过审批</div>
           </div>
           <template v-else>
+            <div class="detail-row" v-if="selectedDayShiftType">
+              <span class="detail-label">当日班次</span>
+              <span class="detail-value">
+                <span class="shift-badge-cal" :style="{ background: getShiftColor(selectedDayShiftType) + '20', color: getShiftColor(selectedDayShiftType) }">
+                  {{ getShiftLabel(selectedDayShiftType) }}
+                  <template v-if="getShiftTimeRange(selectedDayShiftType).startTime">（{{ getShiftTimeRange(selectedDayShiftType).startTime }}-{{ getShiftTimeRange(selectedDayShiftType).endTime }}）</template>
+                </span>
+              </span>
+            </div>
             <div class="detail-row">
               <span class="detail-label">上班打卡</span>
               <span class="detail-value">
                 {{ selectedDayRecord.checkIn || '-' }}
-                <span v-if="selectedDayRecord.checkIn" class="detail-status" :style="{ color: getStatusColor(getCheckInStatus(selectedDayRecord.checkIn)) }">
-                  ({{ getStatusText(getCheckInStatus(selectedDayRecord.checkIn)) }})
+                <span v-if="selectedDayCheckInStatus" class="detail-status" :style="{ color: getStatusColor(selectedDayCheckInStatus) }">
+                  ({{ getStatusText(selectedDayCheckInStatus) }})
                 </span>
               </span>
             </div>
@@ -193,8 +202,8 @@
               <span class="detail-label">下班打卡</span>
               <span class="detail-value">
                 {{ selectedDayRecord.checkOut || '-' }}
-                <span v-if="selectedDayRecord.checkOut" class="detail-status" :style="{ color: getStatusColor(getCheckOutStatus(selectedDayRecord.checkOut)) }">
-                  ({{ getStatusText(getCheckOutStatus(selectedDayRecord.checkOut)) }})
+                <span v-if="selectedDayCheckOutStatus" class="detail-status" :style="{ color: getStatusColor(selectedDayCheckOutStatus) }">
+                  ({{ getStatusText(selectedDayCheckOutStatus) }})
                 </span>
               </span>
             </div>
@@ -274,13 +283,16 @@ import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
+import { useScheduleStore } from '@/store/schedule'
 import { getWeekDays, getCalendarDays, formatMonthDisplay, isWeekend, getToday } from '@/utils/date'
-import { getStatusText, getStatusColor, getStatusBgColor, getCheckInStatus, getCheckOutStatus, getDayStatus, getLeaveTypeLabel, ATTENDANCE_STATUS, getOvertimeTypeLabel, getOvertimeTypeColor, getOvertimeTypeRate } from '@/utils/attendance'
+import { getStatusText, getStatusColor, getStatusBgColor, getCheckInStatus, getCheckOutStatus, getDayStatus, getLeaveTypeLabel, ATTENDANCE_STATUS, getOvertimeTypeLabel, getOvertimeTypeColor, getOvertimeTypeRate, getCheckInStatusWithShift, getCheckOutStatusWithShift, getDayStatusWithShift, generateMonthCalendarDataWithShift, calculateAttendanceStatsWithShift } from '@/utils/attendance'
+import { getShiftLabel, getShiftColor, getShiftTimeRange } from '@/utils/schedule'
 
 const router = useRouter()
 
 const employeeStore = useEmployeeStore()
 const attendanceStore = useAttendanceStore()
+const scheduleStore = useScheduleStore()
 
 const now = new Date()
 const currentYear = ref(now.getFullYear())
@@ -298,16 +310,32 @@ const selectedEmployee = computed(() => {
   return employeeStore.getEmployeeById(selectedEmployeeId.value)
 })
 
-const calendarDays = computed(() => {
-  return getCalendarDays(currentYear.value, currentMonth.value)
+const shiftMap = computed(() => {
+  return scheduleStore.getEmployeeMonthSchedule(selectedEmployeeId.value, currentYear.value, currentMonth.value)
+})
+
+const employeeRecords = computed(() => {
+  return attendanceStore.getEmployeeRecords(selectedEmployeeId.value)
 })
 
 const calendarData = computed(() => {
+  const records = employeeRecords.value
+  if (shiftMap.value && Object.keys(shiftMap.value).length > 0) {
+    return generateMonthCalendarDataWithShift(records, currentYear.value, currentMonth.value, shiftMap.value)
+  }
   return attendanceStore.getMonthCalendar(selectedEmployeeId.value, currentYear.value, currentMonth.value)
 })
 
 const monthStats = computed(() => {
+  const records = employeeRecords.value
+  if (shiftMap.value && Object.keys(shiftMap.value).length > 0) {
+    return calculateAttendanceStatsWithShift(records, currentYear.value, currentMonth.value, shiftMap.value)
+  }
   return attendanceStore.getMonthStats(selectedEmployeeId.value, currentYear.value, currentMonth.value)
+})
+
+const calendarDays = computed(() => {
+  return getCalendarDays(currentYear.value, currentMonth.value)
 })
 
 const selectedDayRecord = computed(() => {
@@ -315,8 +343,32 @@ const selectedDayRecord = computed(() => {
   return calendarData.value[selectedDay.value.date]?.record || null
 })
 
+const selectedDayShiftType = computed(() => {
+  if (!selectedDay.value) return null
+  return shiftMap.value && shiftMap.value[selectedDay.value.date] ? shiftMap.value[selectedDay.value.date] : null
+})
+
 const selectedDayStatus = computed(() => {
+  if (selectedDayShiftType.value) {
+    return getDayStatusWithShift(selectedDayRecord.value, selectedDayShiftType.value)
+  }
   return getDayStatus(selectedDayRecord.value)
+})
+
+const selectedDayCheckInStatus = computed(() => {
+  if (!selectedDayRecord.value?.checkIn) return null
+  if (selectedDayShiftType.value) {
+    return getCheckInStatusWithShift(selectedDayRecord.value.checkIn, selectedDayShiftType.value)
+  }
+  return getCheckInStatus(selectedDayRecord.value.checkIn)
+})
+
+const selectedDayCheckOutStatus = computed(() => {
+  if (!selectedDayRecord.value?.checkOut) return null
+  if (selectedDayShiftType.value) {
+    return getCheckOutStatusWithShift(selectedDayRecord.value.checkOut, selectedDayShiftType.value)
+  }
+  return getCheckOutStatus(selectedDayRecord.value.checkOut)
 })
 
 function prevMonth() {
@@ -339,7 +391,10 @@ function nextMonth() {
 
 function showDayDetail(day) {
   selectedDay.value = day
-  const dayStatus = getDayStatus(calendarData.value[day.date]?.record)
+  const calendarItem = calendarData.value[day.date]
+  const shiftType = calendarItem?.shiftType || (shiftMap.value && shiftMap.value[day.date])
+  const record = calendarItem?.record
+  const dayStatus = shiftType ? getDayStatusWithShift(record, shiftType) : getDayStatus(record)
   if (dayStatus === ATTENDANCE_STATUS.ABSENT) {
     router.push({
       name: 'Makeup',
@@ -960,6 +1015,14 @@ watch(selectedEmployeeId, () => {
 .detail-status-badge {
   padding: 4px 12px;
   border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.shift-badge-cal {
+  padding: 4px 12px;
+  border-radius: 10px;
   font-size: 13px;
   font-weight: 500;
   display: inline-block;
