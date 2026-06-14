@@ -9,7 +9,9 @@ const STORAGE_KEYS = {
   MONTH_SCHEDULES: 'month_schedules',
   SHIFT_SWAP_REQUESTS: 'shift_swap_requests',
   VACATION_GRANTS: 'vacation_grants',
-  VACATION_ADJUSTMENTS: 'vacation_adjustments'
+  VACATION_ADJUSTMENTS: 'vacation_adjustments',
+  NOTIFICATIONS: 'attendance_notifications',
+  NOTIFICATION_READ_STATUS: 'notification_read_status'
 }
 
 export function getStorage(key, defaultValue = null) {
@@ -132,6 +134,22 @@ export function getVacationAdjustments() {
 
 export function setVacationAdjustments(adjustments) {
   return setStorage(STORAGE_KEYS.VACATION_ADJUSTMENTS, adjustments)
+}
+
+export function getNotifications() {
+  return getStorage(STORAGE_KEYS.NOTIFICATIONS, [])
+}
+
+export function setNotifications(notifications) {
+  return setStorage(STORAGE_KEYS.NOTIFICATIONS, notifications)
+}
+
+export function getNotificationReadStatus() {
+  return getStorage(STORAGE_KEYS.NOTIFICATION_READ_STATUS, {})
+}
+
+export function setNotificationReadStatus(status) {
+  return setStorage(STORAGE_KEYS.NOTIFICATION_READ_STATUS, status)
 }
 
 export { STORAGE_KEYS }

@@ -86,6 +86,15 @@ const routes = [
       icon: '⚙️',
       requiresAdmin: true
     }
+  },
+  {
+    path: '/notifications',
+    name: 'NotificationCenter',
+    component: () => import('@/views/NotificationCenter.vue'),
+    meta: {
+      title: '消息中心',
+      icon: '🔔'
+    }
   }
 ]
 

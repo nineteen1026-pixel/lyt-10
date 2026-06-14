@@ -6,6 +6,7 @@ import { useEmployeeStore } from './store/employee'
 import { useAttendanceStore } from './store/attendance'
 import { useScheduleStore } from './store/schedule'
 import { useVacationStore } from './store/vacation'
+import { useNotificationStore } from './store/notification'
 import './style.css'
 
 const app = createApp(App)
@@ -17,10 +18,12 @@ const employeeStore = useEmployeeStore()
 const attendanceStore = useAttendanceStore()
 const scheduleStore = useScheduleStore()
 const vacationStore = useVacationStore()
+const notificationStore = useNotificationStore()
 
 employeeStore.initEmployees()
 attendanceStore.initRecords()
 scheduleStore.initSchedule()
+notificationStore.initNotifications()
 
 const initVacation = () => {
   vacationStore.initVacation(employeeStore.employees)

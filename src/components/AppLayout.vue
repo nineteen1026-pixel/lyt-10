@@ -6,13 +6,19 @@
           <span class="logo-icon">⏰</span>
           <h1 class="logo-text">考勤管理系统</h1>
         </div>
-        <div class="user-info" @click="toggleUserSelect">
-          <span class="user-avatar">{{ currentUser?.avatar || '👤' }}</span>
-          <div class="user-detail">
-            <span class="user-name">{{ currentUser?.name || '未登录' }}</span>
-            <span class="user-dept">{{ currentUser?.department || '' }}</span>
+        <div class="header-actions">
+          <router-link to="/notifications" class="notification-btn">
+            <span class="notification-icon">🔔</span>
+            <span v-if="unreadCount > 0" class="notification-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+          </router-link>
+          <div class="user-info" @click="toggleUserSelect">
+            <span class="user-avatar">{{ currentUser?.avatar || '👤' }}</span>
+            <div class="user-detail">
+              <span class="user-name">{{ currentUser?.name || '未登录' }}</span>
+              <span class="user-dept">{{ currentUser?.department || '' }}</span>
+            </div>
+            <span class="user-arrow" :class="{ 'is-open': showUserSelect }">▼</span>
           </div>
-          <span class="user-arrow" :class="{ 'is-open': showUserSelect }">▼</span>
         </div>
         <Transition name="dropdown">
           <div v-if="showUserSelect" class="user-select-dropdown" @click.stop>
@@ -75,20 +81,27 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useEmployeeStore } from '@/store/employee'
+import { useNotificationStore } from '@/store/notification'
 import AppToast from './AppToast.vue'
 
 const router = useRouter()
 const route = useRoute()
 const employeeStore = useEmployeeStore()
+const notificationStore = useNotificationStore()
 
 const showUserSelect = ref(false)
 const isMobile = ref(false)
 
 const currentUser = computed(() => employeeStore.currentUser)
 const employees = computed(() => employeeStore.employees)
+
+const unreadCount = computed(() => {
+  if (!currentUser.value) return 0
+  return notificationStore.getUnreadCount(currentUser.value.id)
+})
 
 const isAdmin = computed(() => {
   if (!currentUser.value?.roles) return false
@@ -131,6 +144,7 @@ function handleResize() {
 
 onMounted(() => {
   checkMobile()
+  notificationStore.initNotifications()
   document.addEventListener('click', handleClickOutside)
   window.addEventListener('resize', handleResize)
 })
@@ -193,6 +207,58 @@ onUnmounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.notification-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-decoration: none;
+  color: white;
+}
+
+.notification-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.notification-btn:active {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.notification-icon {
+  font-size: 20px;
+}
+
+.notification-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: #ff4d4f;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  border: 2px solid #667eea;
+  box-sizing: content-box;
 }
 
 .user-info {
