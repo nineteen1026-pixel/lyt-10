@@ -425,9 +425,6 @@ export const useAttendanceStore = defineStore('attendance', {
     approveLeaveRequest(requestId) {
       const request = this.leaveRequests.find(r => r.id === requestId)
       if (request) {
-        request.status = 'approved'
-        request.reviewedAt = getNow()
-
         if (['annual', 'lieu'].includes(request.leaveType)) {
           const vacationStore = useVacationStore()
           const vacationType = request.leaveType === 'annual' ? VACATION_TYPES.ANNUAL : VACATION_TYPES.LIEU
@@ -442,7 +439,12 @@ export const useAttendanceStore = defineStore('attendance', {
             this.showToast(result.message, 'error')
             return
           }
+
+          request.vacationConsumed = result.consumedGrants
         }
+
+        request.status = 'approved'
+        request.reviewedAt = getNow()
 
         if (!this.records[request.employeeId]) {
           this.records[request.employeeId] = {}
@@ -473,19 +475,22 @@ export const useAttendanceStore = defineStore('attendance', {
     rejectLeaveRequest(requestId) {
       const request = this.leaveRequests.find(r => r.id === requestId)
       if (request) {
-        request.status = 'rejected'
-        request.reviewedAt = getNow()
-
-        if (['annual', 'lieu'].includes(request.leaveType) && request.wasConsumed) {
+        if (['annual', 'lieu'].includes(request.leaveType) && request.vacationConsumed && request.vacationConsumed.length > 0) {
           const vacationStore = useVacationStore()
           const vacationType = request.leaveType === 'annual' ? VACATION_TYPES.ANNUAL : VACATION_TYPES.LIEU
           vacationStore.returnDays(
             request.employeeId,
             vacationType,
             request.days,
-            request.id
+            request.id,
+            'system',
+            request.vacationConsumed
           )
+          request.vacationConsumed = []
         }
+
+        request.status = 'rejected'
+        request.reviewedAt = getNow()
 
         this.saveLeaveRequestsToStorage()
         this.showToast('请假申请已拒绝', 'warning')

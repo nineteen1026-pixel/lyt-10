@@ -23,8 +23,6 @@ attendanceStore.initRecords()
 scheduleStore.initSchedule()
 
 const initVacation = () => {
-  localStorage.removeItem('vacation_grants')
-  localStorage.removeItem('vacation_adjustments')
   vacationStore.initVacation(employeeStore.employees)
 }
 

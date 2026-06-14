@@ -310,18 +310,42 @@ export const useVacationStore = defineStore('vacation', {
       return { success: true, consumedGrants }
     },
 
-    returnDays(employeeId, vacationType, days, leaveRequestId, operator = 'system') {
-      const relatedAdjustments = this.adjustments.filter(a => 
-        a.employeeId === employeeId && 
-        a.vacationType === vacationType && 
-        a.relatedLeaveRequestId === leaveRequestId &&
-        a.reason === 'leave_approved'
-      )
+    returnDays(employeeId, vacationType, days, leaveRequestId, operator = 'system', consumedGrants = null) {
+      let refundList = []
 
-      relatedAdjustments.forEach(adj => {
-        const grant = this.grants.find(g => g.id === adj.relatedGrantId)
+      if (consumedGrants && consumedGrants.length > 0) {
+        refundList = consumedGrants.map(cg => ({
+          grantId: cg.grantId,
+          days: cg.consumedDays
+        }))
+      } else {
+        const relatedAdjustments = this.adjustments.filter(a => 
+          a.employeeId === employeeId && 
+          a.vacationType === vacationType && 
+          a.relatedLeaveRequestId === leaveRequestId &&
+          a.reason === 'leave_approved'
+        )
+        refundList = relatedAdjustments.map(adj => ({
+          grantId: adj.relatedGrantId,
+          days: adj.days
+        }))
+      }
+
+      const alreadyReturned = this.adjustments.filter(a =>
+        a.employeeId === employeeId &&
+        a.vacationType === vacationType &&
+        a.relatedLeaveRequestId === leaveRequestId &&
+        a.reason === 'leave_cancel'
+      ).map(a => a.relatedGrantId)
+
+      refundList.forEach(item => {
+        if (alreadyReturned.includes(item.grantId)) return
+
+        const grant = this.grants.find(g => g.id === item.grantId)
         if (grant) {
-          const returnDays = Math.min(adj.days, grant.usedDays)
+          const returnDays = Math.min(item.days, grant.usedDays)
+          if (returnDays <= 0) return
+
           grant.usedDays -= returnDays
           grant.remainingDays += returnDays
           
