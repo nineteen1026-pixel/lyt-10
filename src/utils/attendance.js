@@ -48,6 +48,7 @@ export const STATUS_BG_COLOR = {
 
 export const LEAVE_TYPES = [
   { value: 'annual', label: '年假', color: '#722ed1' },
+  { value: 'lieu', label: '调休', color: '#13c2c2' },
   { value: 'sick', label: '病假', color: '#eb2f96' },
   { value: 'personal', label: '事假', color: '#fa8c16' },
   { value: 'marriage', label: '婚假', color: '#f5222d' },

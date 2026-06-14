@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { getAttendanceRecords, setAttendanceRecords, getMakeupRequests, setMakeupRequests, getLeaveRequests, setLeaveRequests, getOvertimeRequests, setOvertimeRequests } from '@/utils/storage'
 import { getToday, getCurrentTime, getNow, formatDate, parseTime } from '@/utils/date'
 import { getCheckInStatus, getCheckOutStatus, getDayStatus, generateMonthCalendarData, calculateAttendanceStats, ATTENDANCE_STATUS, LEAVE_TYPES, getLeaveTypeLabel, OVERTIME_STATUS, OVERTIME_TYPES, getOvertimeStatusText, getOvertimeTypeLabel, isOvertimeFinalApproved, isOvertimeRejected, calculateOvertimeHours, getCheckInStatusWithShift, getCheckOutStatusWithShift, getDayStatusWithShift, calculateAttendanceStatsWithShift } from '@/utils/attendance'
+import { VACATION_TYPES } from '@/utils/vacation'
+import { useVacationStore } from '@/store/vacation'
 
 function generateMockRecords() {
   const records = {}
@@ -426,6 +428,22 @@ export const useAttendanceStore = defineStore('attendance', {
         request.status = 'approved'
         request.reviewedAt = getNow()
 
+        if (['annual', 'lieu'].includes(request.leaveType)) {
+          const vacationStore = useVacationStore()
+          const vacationType = request.leaveType === 'annual' ? VACATION_TYPES.ANNUAL : VACATION_TYPES.LIEU
+          const result = vacationStore.consumeDays(
+            request.employeeId,
+            vacationType,
+            request.days,
+            request.id
+          )
+          
+          if (!result.success) {
+            this.showToast(result.message, 'error')
+            return
+          }
+        }
+
         if (!this.records[request.employeeId]) {
           this.records[request.employeeId] = {}
         }
@@ -457,6 +475,18 @@ export const useAttendanceStore = defineStore('attendance', {
       if (request) {
         request.status = 'rejected'
         request.reviewedAt = getNow()
+
+        if (['annual', 'lieu'].includes(request.leaveType) && request.wasConsumed) {
+          const vacationStore = useVacationStore()
+          const vacationType = request.leaveType === 'annual' ? VACATION_TYPES.ANNUAL : VACATION_TYPES.LIEU
+          vacationStore.returnDays(
+            request.employeeId,
+            vacationType,
+            request.days,
+            request.id
+          )
+        }
+
         this.saveLeaveRequestsToStorage()
         this.showToast('请假申请已拒绝', 'warning')
       }

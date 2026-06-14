@@ -63,6 +63,17 @@
           <span v-if="errors.endDate" class="error-message">{{ errors.endDate }}</span>
         </div>
 
+        <div v-if="currentLeaveBalance" class="form-row">
+          <label class="form-label">
+            <span class="label-text">账户余额</span>
+          </label>
+          <div class="balance-info" :class="{ warning: showBalanceWarning }">
+            <span class="balance-label">当前可用：</span>
+            <span class="balance-value">{{ currentLeaveBalance.available }} 天</span>
+            <span v-if="currentLeaveBalance.pending > 0" class="balance-pending">（待审批 {{ currentLeaveBalance.pending }} 天）</span>
+          </div>
+        </div>
+
         <div class="form-row" v-if="formData.startDate && formData.endDate">
           <label class="form-label">
             <span class="label-text">请假天数</span>
@@ -70,6 +81,9 @@
           <div class="days-display">
             <span class="days-count">{{ formData.days }}</span>
             <span class="days-unit">个工作日</span>
+          </div>
+          <div v-if="showBalanceWarning" class="error-message">
+            假期余额不足，当前可用 {{ currentLeaveBalance.available }} 天
           </div>
         </div>
 
@@ -186,17 +200,37 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
+import { useVacationStore } from '@/store/vacation'
 import { LEAVE_TYPES, getLeaveTypeLabel } from '@/utils/attendance'
 import { formatDate } from '@/utils/date'
+import { VACATION_TYPES } from '@/utils/vacation'
 
 const employeeStore = useEmployeeStore()
 const attendanceStore = useAttendanceStore()
+const vacationStore = useVacationStore()
 
 const activeTab = ref('all')
 const isAdmin = ref(true)
+
+const requiresBalanceCheck = ['annual', 'lieu']
+
+const currentLeaveBalance = computed(() => {
+  if (!currentUser.value) return { total: 0, used: 0, pending: 0, available: 0 }
+  if (formData.leaveType === 'annual') {
+    return vacationStore.getEmployeeBalance(currentUser.value.id, VACATION_TYPES.ANNUAL)
+  } else if (formData.leaveType === 'lieu') {
+    return vacationStore.getEmployeeBalance(currentUser.value.id, VACATION_TYPES.LIEU)
+  }
+  return null
+})
+
+const showBalanceWarning = computed(() => {
+  if (!currentLeaveBalance.value) return false
+  return formData.days > 0 && formData.days > currentLeaveBalance.value.available
+})
 
 const leaveTypes = LEAVE_TYPES
 
@@ -289,6 +323,11 @@ function validateForm() {
     valid = false
   } else {
     errors.endDate = ''
+  }
+
+  if (requiresBalanceCheck.includes(formData.leaveType) && showBalanceWarning.value) {
+    errors.endDate = `假期余额不足，当前可用 ${currentLeaveBalance.value.available} 天`
+    valid = false
   }
 
   if (!formData.reason.trim()) {
@@ -591,6 +630,39 @@ function rejectRequest(id) {
 .days-unit {
   font-size: 13px;
   color: #666;
+}
+
+.balance-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #f6ffed;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.balance-info.warning {
+  background: #fff1f0;
+}
+
+.balance-label {
+  color: #666;
+}
+
+.balance-value {
+  font-weight: 600;
+  color: #52c41a;
+}
+
+.balance-info.warning .balance-value {
+  color: #f5222d;
+}
+
+.balance-pending {
+  color: #999;
+  font-size: 12px;
 }
 
 .error-message {

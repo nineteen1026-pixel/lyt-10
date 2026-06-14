@@ -67,6 +67,25 @@ const routes = [
       title: '排班管理',
       icon: '📋'
     }
+  },
+  {
+    path: '/vacation',
+    name: 'Vacation',
+    component: () => import('@/views/VacationAccount.vue'),
+    meta: {
+      title: '我的假期',
+      icon: '🎫'
+    }
+  },
+  {
+    path: '/vacation-manage',
+    name: 'VacationManage',
+    component: () => import('@/views/VacationManage.vue'),
+    meta: {
+      title: '假期管理',
+      icon: '⚙️',
+      requiresAdmin: true
+    }
   }
 ]
 

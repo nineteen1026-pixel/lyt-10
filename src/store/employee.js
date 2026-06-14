@@ -35,12 +35,14 @@ export const useEmployeeStore = defineStore('employee', {
         this.employees = mockEmployees
         this.saveToStorage()
       } else {
-        this.employees = stored
+        this.employees = mockEmployees
+        this.saveToStorage()
       }
 
       const storedUser = getCurrentUser()
       if (storedUser) {
-        this.currentUser = storedUser
+        const freshUser = this.employees.find(e => e.id === storedUser.id)
+        this.currentUser = freshUser || this.employees[0]
       } else {
         this.setCurrentUser(this.employees[0])
       }

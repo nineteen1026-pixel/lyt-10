@@ -90,8 +90,19 @@ const isMobile = ref(false)
 const currentUser = computed(() => employeeStore.currentUser)
 const employees = computed(() => employeeStore.employees)
 
+const isAdmin = computed(() => {
+  if (!currentUser.value?.roles) return false
+  return currentUser.value.roles.includes('manager') || 
+         currentUser.value.roles.includes('hr') ||
+         currentUser.value.roles.includes('supervisor')
+})
+
 const navRoutes = computed(() => {
-  return router.options.routes.filter(r => r.meta && r.meta.title)
+  return router.options.routes.filter(r => {
+    if (!r.meta || !r.meta.title) return false
+    if (r.meta.requiresAdmin && !isAdmin.value) return false
+    return true
+  })
 })
 
 function checkMobile() {

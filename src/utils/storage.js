@@ -7,7 +7,9 @@ const STORAGE_KEYS = {
   CURRENT_USER: 'current_user',
   SHIFT_TEMPLATES: 'shift_templates',
   MONTH_SCHEDULES: 'month_schedules',
-  SHIFT_SWAP_REQUESTS: 'shift_swap_requests'
+  SHIFT_SWAP_REQUESTS: 'shift_swap_requests',
+  VACATION_GRANTS: 'vacation_grants',
+  VACATION_ADJUSTMENTS: 'vacation_adjustments'
 }
 
 export function getStorage(key, defaultValue = null) {
@@ -114,6 +116,22 @@ export function getShiftSwapRequests() {
 
 export function setShiftSwapRequests(requests) {
   return setStorage(STORAGE_KEYS.SHIFT_SWAP_REQUESTS, requests)
+}
+
+export function getVacationGrants() {
+  return getStorage(STORAGE_KEYS.VACATION_GRANTS, [])
+}
+
+export function setVacationGrants(grants) {
+  return setStorage(STORAGE_KEYS.VACATION_GRANTS, grants)
+}
+
+export function getVacationAdjustments() {
+  return getStorage(STORAGE_KEYS.VACATION_ADJUSTMENTS, [])
+}
+
+export function setVacationAdjustments(adjustments) {
+  return setStorage(STORAGE_KEYS.VACATION_ADJUSTMENTS, adjustments)
 }
 
 export { STORAGE_KEYS }
