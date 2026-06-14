@@ -1,5 +1,6 @@
 import { workTimeConfig } from '@/data/employees'
 import { parseTime, formatTime, getToday } from './date'
+import { getShiftWorkConfig, getWorkTimeForShift } from './schedule'
 
 export const ATTENDANCE_STATUS = {
   NORMAL: 'normal',
@@ -356,4 +357,68 @@ export function calculateAttendanceStats(records, year, month) {
   stats.holidayOvertimeHours = Math.round(stats.holidayOvertimeHours * 100) / 100
 
   return stats
+}
+
+export function getCheckInStatusWithShift(checkInTime, shiftType) {
+  if (!checkInTime) return ATTENDANCE_STATUS.NOT_CHECKED
+  if (shiftType === 'rest') return ATTENDANCE_STATUS.NOT_CHECKED
+
+  const workTime = getWorkTimeForShift(shiftType)
+  if (!workTime) return getCheckInStatus(checkInTime)
+
+  const shiftStart = parseTime(workTime.startTime)
+  const checkIn = parseTime(checkInTime)
+
+  if (checkIn > shiftStart + workTime.lateThreshold) {
+    return ATTENDANCE_STATUS.LATE
+  }
+  return ATTENDANCE_STATUS.NORMAL
+}
+
+export function getCheckOutStatusWithShift(checkOutTime, shiftType) {
+  if (!checkOutTime) return ATTENDANCE_STATUS.NOT_CHECKED
+  if (shiftType === 'rest') return ATTENDANCE_STATUS.NOT_CHECKED
+
+  const workTime = getWorkTimeForShift(shiftType)
+  if (!workTime) return getCheckOutStatus(checkOutTime)
+
+  const shiftEnd = parseTime(workTime.endTime)
+  const checkOut = parseTime(checkOutTime)
+
+  if (workTime.startTime > workTime.endTime) {
+    const nextDayEnd = shiftEnd + 24 * 60
+    if (checkOut < shiftEnd && checkOut + 24 * 60 < nextDayEnd - workTime.earlyLeaveThreshold) {
+      return ATTENDANCE_STATUS.EARLY_LEAVE
+    }
+  } else {
+    if (checkOut < shiftEnd - workTime.earlyLeaveThreshold) {
+      return ATTENDANCE_STATUS.EARLY_LEAVE
+    }
+  }
+  return ATTENDANCE_STATUS.NORMAL
+}
+
+export function getDayStatusWithShift(record, shiftType) {
+  if (!record) return ATTENDANCE_STATUS.NOT_CHECKED
+  if (shiftType === 'rest') return ATTENDANCE_STATUS.LEAVE
+
+  if (record.isLeave) return ATTENDANCE_STATUS.LEAVE
+  if (record.makeupApproved) return ATTENDANCE_STATUS.MAKEUP
+  if (record.isOvertime) return ATTENDANCE_STATUS.OVERTIME
+
+  const checkInStatus = record.checkIn ? getCheckInStatusWithShift(record.checkIn, shiftType) : ATTENDANCE_STATUS.NOT_CHECKED
+  const checkOutStatus = record.checkOut ? getCheckOutStatusWithShift(record.checkOut, shiftType) : ATTENDANCE_STATUS.NOT_CHECKED
+
+  if (checkInStatus === ATTENDANCE_STATUS.LATE) return ATTENDANCE_STATUS.LATE
+  if (checkOutStatus === ATTENDANCE_STATUS.EARLY_LEAVE) return ATTENDANCE_STATUS.EARLY_LEAVE
+
+  if (checkInStatus === ATTENDANCE_STATUS.NORMAL && checkOutStatus === ATTENDANCE_STATUS.NORMAL) {
+    return ATTENDANCE_STATUS.NORMAL
+  }
+
+  if (checkInStatus === ATTENDANCE_STATUS.NOT_CHECKED && checkOutStatus === ATTENDANCE_STATUS.NOT_CHECKED) {
+    return ATTENDANCE_STATUS.ABSENT
+  }
+
+  return ATTENDANCE_STATUS.NOT_CHECKED
 }

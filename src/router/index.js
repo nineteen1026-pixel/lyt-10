@@ -58,6 +58,15 @@ const routes = [
       title: '加班申请',
       icon: '⏱️'
     }
+  },
+  {
+    path: '/schedule',
+    name: 'Schedule',
+    component: () => import('@/views/Schedule.vue'),
+    meta: {
+      title: '排班管理',
+      icon: '📋'
+    }
   }
 ]
 

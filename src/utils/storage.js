@@ -4,7 +4,10 @@ const STORAGE_KEYS = {
   MAKEUP_REQUESTS: 'makeup_requests',
   LEAVE_REQUESTS: 'leave_requests',
   OVERTIME_REQUESTS: 'overtime_requests',
-  CURRENT_USER: 'current_user'
+  CURRENT_USER: 'current_user',
+  SHIFT_TEMPLATES: 'shift_templates',
+  MONTH_SCHEDULES: 'month_schedules',
+  SHIFT_SWAP_REQUESTS: 'shift_swap_requests'
 }
 
 export function getStorage(key, defaultValue = null) {
@@ -87,6 +90,30 @@ export function setCurrentUser(user) {
 
 export function clearAllStorage() {
   Object.values(STORAGE_KEYS).forEach(key => removeStorage(key))
+}
+
+export function getShiftTemplates() {
+  return getStorage(STORAGE_KEYS.SHIFT_TEMPLATES, {})
+}
+
+export function setShiftTemplates(templates) {
+  return setStorage(STORAGE_KEYS.SHIFT_TEMPLATES, templates)
+}
+
+export function getMonthSchedules() {
+  return getStorage(STORAGE_KEYS.MONTH_SCHEDULES, {})
+}
+
+export function setMonthSchedules(schedules) {
+  return setStorage(STORAGE_KEYS.MONTH_SCHEDULES, schedules)
+}
+
+export function getShiftSwapRequests() {
+  return getStorage(STORAGE_KEYS.SHIFT_SWAP_REQUESTS, [])
+}
+
+export function setShiftSwapRequests(requests) {
+  return setStorage(STORAGE_KEYS.SHIFT_SWAP_REQUESTS, requests)
 }
 
 export { STORAGE_KEYS }

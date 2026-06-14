@@ -80,16 +80,16 @@
     </div>
 
     <div class="card worktime-card">
-      <h4 class="card-title">工作时间</h4>
+      <h4 class="card-title">工作时间 <span v-if="todayShift" class="shift-badge" :style="{ background: todayShift.color + '20', color: todayShift.color }">{{ todayShift.label }}</span></h4>
       <div class="worktime-grid">
         <div class="worktime-item">
           <span class="worktime-icon">🌅</span>
           <div>
             <div class="worktime-label">上班时间</div>
-            <div class="worktime-value">{{ workTimeConfig.morningStart }}</div>
+            <div class="worktime-value">{{ todayShift && todayShift.startTime ? todayShift.startTime : workTimeConfig.morningStart }}</div>
           </div>
         </div>
-        <div class="worktime-item">
+        <div class="worktime-item" v-if="!todayShift || todayShift.value !== 'rest'">
           <span class="worktime-icon">☀️</span>
           <div>
             <div class="worktime-label">午休时间</div>
@@ -100,7 +100,7 @@
           <span class="worktime-icon">🌇</span>
           <div>
             <div class="worktime-label">下班时间</div>
-            <div class="worktime-value">{{ workTimeConfig.afternoonEnd }}</div>
+            <div class="worktime-value">{{ todayShift && todayShift.endTime ? todayShift.endTime : workTimeConfig.afternoonEnd }}</div>
           </div>
         </div>
       </div>
@@ -112,17 +112,30 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
+import { useScheduleStore } from '@/store/schedule'
 import { workTimeConfig } from '@/data/employees'
-import { getStatusText, getStatusColor, getStatusBgColor, ATTENDANCE_STATUS } from '@/utils/attendance'
+import { getStatusText, getStatusColor, getStatusBgColor, ATTENDANCE_STATUS, getCheckInStatusWithShift, getCheckOutStatusWithShift, getDayStatusWithShift } from '@/utils/attendance'
+import { getShiftTimeRange, getShiftLabel, getShiftType } from '@/utils/schedule'
 import { formatDate, getToday } from '@/utils/date'
 
 const employeeStore = useEmployeeStore()
 const attendanceStore = useAttendanceStore()
+const scheduleStore = useScheduleStore()
 
 const currentTime = ref('')
 let timer = null
 
 const currentUser = computed(() => employeeStore.currentUser)
+
+const todayShiftType = computed(() => {
+  if (!currentUser.value) return null
+  return scheduleStore.getEmployeeShift(currentUser.value.id, today)
+})
+
+const todayShift = computed(() => {
+  if (!todayShiftType.value) return null
+  return getShiftType(todayShiftType.value)
+})
 
 const todayRecord = computed(() => {
   if (!currentUser.value) return null
@@ -134,14 +147,25 @@ const hasCheckedOut = computed(() => !!todayRecord.value?.checkOut)
 const canCheckOut = computed(() => hasCheckedIn.value)
 
 const checkInStatus = computed(() => {
+  if (todayShiftType.value) {
+    if (!todayRecord.value) return ATTENDANCE_STATUS.NOT_CHECKED
+    return getCheckInStatusWithShift(todayRecord.value.checkIn, todayShiftType.value)
+  }
   return attendanceStore.getTodayCheckInStatus(todayRecord.value)
 })
 
 const checkOutStatus = computed(() => {
+  if (todayShiftType.value) {
+    if (!todayRecord.value || !todayRecord.value.checkOut) return ATTENDANCE_STATUS.NOT_CHECKED
+    return getCheckOutStatusWithShift(todayRecord.value.checkOut, todayShiftType.value)
+  }
   return attendanceStore.getTodayCheckOutStatus(todayRecord.value)
 })
 
 const dayStatus = computed(() => {
+  if (todayShiftType.value) {
+    return getDayStatusWithShift(todayRecord.value, todayShiftType.value)
+  }
   return attendanceStore.getTodayStatus(todayRecord.value)
 })
 
@@ -160,6 +184,9 @@ const workTimeDisplay = computed(() => {
   if (todayRecord.value?.checkIn && todayRecord.value?.checkOut) {
     return `${todayRecord.value.checkIn} - ${todayRecord.value.checkOut}`
   }
+  if (todayShift.value && todayShift.value.startTime && todayShift.value.endTime) {
+    return `${todayShift.value.startTime} - ${todayShift.value.endTime}`
+  }
   return `${workTimeConfig.morningStart} - ${workTimeConfig.afternoonEnd}`
 })
 
@@ -174,14 +201,14 @@ function updateTime() {
 function handleCheckIn() {
   if (hasCheckedIn.value) return
   if (currentUser.value) {
-    attendanceStore.checkIn(currentUser.value.id)
+    attendanceStore.checkIn(currentUser.value.id, todayShiftType.value)
   }
 }
 
 function handleCheckOut() {
   if (!canCheckOut.value || hasCheckedOut.value) return
   if (currentUser.value) {
-    attendanceStore.checkOut(currentUser.value.id)
+    attendanceStore.checkOut(currentUser.value.id, todayShiftType.value)
   }
 }
 
@@ -383,6 +410,16 @@ onUnmounted(() => {
   font-weight: 600;
   color: #333;
   margin: 0 0 14px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shift-badge {
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-weight: 500;
 }
 
 .status-grid {

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { getAttendanceRecords, setAttendanceRecords, getMakeupRequests, setMakeupRequests, getLeaveRequests, setLeaveRequests, getOvertimeRequests, setOvertimeRequests } from '@/utils/storage'
 import { getToday, getCurrentTime, getNow, formatDate, parseTime } from '@/utils/date'
-import { getCheckInStatus, getCheckOutStatus, getDayStatus, generateMonthCalendarData, calculateAttendanceStats, ATTENDANCE_STATUS, LEAVE_TYPES, getLeaveTypeLabel, OVERTIME_STATUS, OVERTIME_TYPES, getOvertimeStatusText, getOvertimeTypeLabel, isOvertimeFinalApproved, isOvertimeRejected, calculateOvertimeHours } from '@/utils/attendance'
+import { getCheckInStatus, getCheckOutStatus, getDayStatus, generateMonthCalendarData, calculateAttendanceStats, ATTENDANCE_STATUS, LEAVE_TYPES, getLeaveTypeLabel, OVERTIME_STATUS, OVERTIME_TYPES, getOvertimeStatusText, getOvertimeTypeLabel, isOvertimeFinalApproved, isOvertimeRejected, calculateOvertimeHours, getCheckInStatusWithShift, getCheckOutStatusWithShift, getDayStatusWithShift } from '@/utils/attendance'
 
 function generateMockRecords() {
   const records = {}
@@ -251,7 +251,7 @@ export const useAttendanceStore = defineStore('attendance', {
       this.toast.show = false
     },
 
-    checkIn(employeeId) {
+    checkIn(employeeId, shiftType = null) {
       const today = getToday()
       const now = getNow()
       const currentTime = getCurrentTime()
@@ -265,15 +265,24 @@ export const useAttendanceStore = defineStore('attendance', {
         return false
       }
 
+      if (shiftType === 'rest') {
+        this.showToast('今日为休息日，无需打卡', 'warning')
+        return false
+      }
+
       this.records[employeeId][today] = {
         ...this.records[employeeId][today],
         checkIn: currentTime,
         checkInTime: now
       }
 
+      if (shiftType) {
+        this.records[employeeId][today].shiftType = shiftType
+      }
+
       this.saveRecordsToStorage()
 
-      const status = getCheckInStatus(currentTime)
+      const status = shiftType ? getCheckInStatusWithShift(currentTime, shiftType) : getCheckInStatus(currentTime)
       if (status === ATTENDANCE_STATUS.LATE) {
         this.showToast('上班打卡成功（迟到）', 'warning')
       } else {
@@ -283,7 +292,7 @@ export const useAttendanceStore = defineStore('attendance', {
       return true
     },
 
-    checkOut(employeeId) {
+    checkOut(employeeId, shiftType = null) {
       const today = getToday()
       const now = getNow()
       const currentTime = getCurrentTime()
@@ -304,9 +313,11 @@ export const useAttendanceStore = defineStore('attendance', {
         checkOutTime: now
       }
 
+      const effectiveShiftType = shiftType || this.records[employeeId][today].shiftType
+
       this.saveRecordsToStorage()
 
-      const status = getCheckOutStatus(currentTime)
+      const status = effectiveShiftType ? getCheckOutStatusWithShift(currentTime, effectiveShiftType) : getCheckOutStatus(currentTime)
       if (status === ATTENDANCE_STATUS.EARLY_LEAVE) {
         this.showToast('下班打卡成功（早退）', 'warning')
       } else {
