@@ -199,7 +199,11 @@
           v-for="request in filteredRequests"
           :key="request.id"
           class="request-item"
-          :class="{ 'is-mine': request.employeeId === currentUser?.id }"
+          :class="{ 
+            'is-mine': request.employeeId === currentUser?.id,
+            'request-highlight': highlightedId && request.id === highlightedId
+          }"
+          :ref="el => setRequestRef(el, request.id)"
         >
           <div class="request-header">
             <div class="request-info">
@@ -297,7 +301,8 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, onUpdated, watch, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
 import { 
@@ -316,10 +321,14 @@ import {
 } from '@/utils/attendance'
 import { parseTime } from '@/utils/date'
 
+const route = useRoute()
+const router = useRouter()
 const employeeStore = useEmployeeStore()
 const attendanceStore = useAttendanceStore()
 
 const activeTab = ref('all')
+const highlightedId = ref('')
+const requestRefs = new Map()
 const overtimeTypes = OVERTIME_TYPES
 const approvalStages = APPROVAL_STAGES
 
@@ -342,6 +351,71 @@ const errors = reactive({
 })
 
 const currentUser = computed(() => employeeStore.currentUser)
+
+function setRequestRef(el, id) {
+  if (el) {
+    requestRefs.set(id, el)
+  } else {
+    requestRefs.delete(id)
+  }
+}
+
+function scrollToRequest(id) {
+  nextTick(() => {
+    const el = requestRefs.get(id)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  })
+}
+
+function handleParamsChange() {
+  const dateFromQuery = route.query.date
+  const requestIdFromQuery = route.query.requestId
+  const applicantIdFromQuery = route.query.applicantId
+  const requestTypeFromQuery = route.query.requestType
+
+  if (dateFromQuery && typeof dateFromQuery === 'string') {
+    formData.date = dateFromQuery
+  }
+
+  if (applicantIdFromQuery && typeof applicantIdFromQuery === 'string' && hasApprovalRole.value) {
+    activeTab.value = 'pendingApproval'
+  }
+
+  if (requestIdFromQuery && typeof requestIdFromQuery === 'string') {
+    highlightedId.value = requestIdFromQuery
+  }
+}
+
+function highlightAndScroll() {
+  const requestIdFromQuery = route.query.requestId
+  if (requestIdFromQuery) {
+    highlightedId.value = requestIdFromQuery
+    scrollToRequest(requestIdFromQuery)
+    setTimeout(() => scrollToRequest(requestIdFromQuery), 200)
+    setTimeout(() => {
+      highlightedId.value = ''
+    }, 3000)
+  }
+}
+
+onMounted(() => {
+  handleParamsChange()
+  highlightAndScroll()
+})
+
+onUpdated(() => {
+  highlightAndScroll()
+})
+
+watch(
+  () => [route.query.date, route.query.requestId, route.query.applicantId, route.query.requestType],
+  () => {
+    handleParamsChange()
+    highlightAndScroll()
+  }
+)
 
 const currentUserRoles = computed(() => {
   if (!currentUser.value) return []
@@ -1151,6 +1225,22 @@ function rejectRequest(request) {
   padding: 16px;
   transition: all 0.15s;
   background: white;
+}
+
+.request-item.request-highlight {
+  border-color: #667eea;
+  background: #f0f5ff;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+  animation: highlightPulse 1.5s ease-in-out 2;
+}
+
+@keyframes highlightPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.4);
+  }
 }
 
 .request-item:active {

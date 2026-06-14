@@ -137,6 +137,8 @@
           v-for="request in filteredRequests"
           :key="request.id"
           class="request-item"
+          :class="{ 'request-highlight': highlightedId && request.id === highlightedId }"
+          :ref="el => setRequestRef(el, request.id)"
         >
           <div class="request-header">
             <div class="request-info">
@@ -145,6 +147,9 @@
                 {{ request.type === 'checkin' ? '上班补卡' : '下班补卡' }}
               </span>
               <span class="request-time">{{ request.time }}</span>
+              <span v-if="request.employeeName && request.employeeId !== currentUser?.id" class="request-applicant">
+                申请人：{{ request.employeeName }}
+              </span>
             </div>
             <span class="request-status" :class="request.status">
               {{ getStatusText(request.status) }}
@@ -172,7 +177,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted, watch } from 'vue'
+import { ref, computed, reactive, onMounted, onUpdated, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
@@ -186,7 +191,16 @@ const attendanceStore = useAttendanceStore()
 
 const today = getToday()
 const activeTab = ref('all')
-const isAdmin = ref(true)
+const highlightedId = ref('')
+const isApprovalMode = ref(false)
+const requestRefs = new Map()
+
+const isAdmin = computed(() => {
+  if (!currentUser.value?.roles) return false
+  return currentUser.value.roles.includes('manager') ||
+         currentUser.value.roles.includes('hr') ||
+         currentUser.value.roles.includes('supervisor')
+})
 
 const formData = reactive({
   date: '',
@@ -202,28 +216,74 @@ const errors = reactive({
   reason: ''
 })
 
-function fillDateFromQuery() {
+function setRequestRef(el, id) {
+  if (el) {
+    requestRefs.set(id, el)
+  } else {
+    requestRefs.delete(id)
+  }
+}
+
+function scrollToRequest(id) {
+  nextTick(() => {
+    const el = requestRefs.get(id)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  })
+}
+
+function handleParamsChange() {
   const dateFromQuery = route.query.date
+  const typeFromQuery = route.query.type
+  const requestIdFromQuery = route.query.requestId
+  const applicantIdFromQuery = route.query.applicantId
+  const requestTypeFromQuery = route.query.requestType
+
   if (dateFromQuery && typeof dateFromQuery === 'string') {
     formData.date = dateFromQuery
+  }
+
+  if (typeFromQuery && typeof typeFromQuery === 'string') {
+    formData.type = typeFromQuery
+  }
+
+  if (applicantIdFromQuery && typeof applicantIdFromQuery === 'string' && isAdmin.value) {
+    isApprovalMode.value = true
+    activeTab.value = 'pending'
+  }
+
+  if (requestIdFromQuery && typeof requestIdFromQuery === 'string') {
+    highlightedId.value = requestIdFromQuery
+  }
+}
+
+function highlightAndScroll() {
+  const requestIdFromQuery = route.query.requestId
+  if (requestIdFromQuery) {
+    highlightedId.value = requestIdFromQuery
+    scrollToRequest(requestIdFromQuery)
+    setTimeout(() => scrollToRequest(requestIdFromQuery), 200)
+    setTimeout(() => {
+      highlightedId.value = ''
+    }, 3000)
   }
 }
 
 onMounted(() => {
-  fillDateFromQuery()
+  handleParamsChange()
+  highlightAndScroll()
+})
+
+onUpdated(() => {
+  highlightAndScroll()
 })
 
 watch(
-  () => route.query.date,
-  (newDate) => {
-    if (newDate && typeof newDate === 'string') {
-      formData.date = newDate
-      formData.time = ''
-      formData.reason = ''
-      errors.date = ''
-      errors.time = ''
-      errors.reason = ''
-    }
+  () => [route.query.date, route.query.type, route.query.requestId, route.query.applicantId, route.query.requestType],
+  () => {
+    handleParamsChange()
+    highlightAndScroll()
   }
 )
 
@@ -231,6 +291,14 @@ const currentUser = computed(() => employeeStore.currentUser)
 
 const myRequests = computed(() => {
   if (!currentUser.value) return []
+  if (isApprovalMode.value && isAdmin.value) {
+    const applicantIdFromQuery = route.query.applicantId
+    let allRequests = attendanceStore.makeupRequests
+    if (applicantIdFromQuery && typeof applicantIdFromQuery === 'string') {
+      allRequests = allRequests.filter(r => r.employeeId === applicantIdFromQuery)
+    }
+    return allRequests
+  }
   return attendanceStore.getEmployeeMakeupRequests(currentUser.value.id)
 })
 
@@ -679,6 +747,30 @@ function rejectRequest(id) {
   font-size: 13px;
   color: #666;
   font-variant-numeric: tabular-nums;
+}
+
+.request-applicant {
+  font-size: 12px;
+  color: #999;
+  padding: 2px 8px;
+  background: #f5f5f5;
+  border-radius: 6px;
+}
+
+.request-item.request-highlight {
+  border-color: #667eea;
+  background: #f0f5ff;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+  animation: highlightPulse 1.5s ease-in-out 2;
+}
+
+@keyframes highlightPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.4);
+  }
 }
 
 .request-status {

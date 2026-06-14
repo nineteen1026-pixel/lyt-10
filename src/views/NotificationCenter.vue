@@ -32,6 +32,18 @@
       <div class="filter-bar">
         <div class="filter-left">
           <div class="filter-item">
+            <label class="filter-label">通知类型</label>
+            <select v-model="filters.notifyType" class="filter-select">
+              <option value="">全部</option>
+              <option value="late">迟到</option>
+              <option value="absent">缺卡</option>
+              <option value="makeup">补卡</option>
+              <option value="leave">请假</option>
+              <option value="overtime">加班</option>
+              <option value="approval">待审核</option>
+            </select>
+          </div>
+          <div class="filter-item">
             <label class="filter-label">状态</label>
             <select v-model="filters.status" class="filter-select">
               <option value="">全部</option>
@@ -176,11 +188,21 @@ const activeCategory = ref('')
 const selectedIds = ref([])
 
 const filters = ref({
+  notifyType: '',
   status: '',
   startDate: '',
   endDate: '',
   keyword: ''
 })
+
+const NOTIFY_TYPE_TO_TYPES = {
+  late: [NOTIFICATION_TYPES.LATE],
+  absent: [NOTIFICATION_TYPES.ABSENT],
+  makeup: [NOTIFICATION_TYPES.MAKEUP_PENDING, NOTIFICATION_TYPES.MAKEUP_APPROVED, NOTIFICATION_TYPES.MAKEUP_REJECTED],
+  leave: [NOTIFICATION_TYPES.LEAVE_PENDING, NOTIFICATION_TYPES.LEAVE_APPROVED, NOTIFICATION_TYPES.LEAVE_REJECTED],
+  overtime: [NOTIFICATION_TYPES.OVERTIME_PENDING, NOTIFICATION_TYPES.OVERTIME_APPROVED, NOTIFICATION_TYPES.OVERTIME_REJECTED],
+  approval: [NOTIFICATION_TYPES.APPROVAL_TODO]
+}
 
 const categoryList = [
   { key: '', label: '全部', icon: '📬', bgColor: 'linear-gradient(135deg, #667eea, #764ba2)' },
@@ -214,7 +236,16 @@ const filteredNotifications = computed(() => {
     filterParams.category = activeCategory.value
   }
 
-  return notificationStore.filterNotifications(currentUser.value.id, filterParams)
+  let result = notificationStore.filterNotifications(currentUser.value.id, filterParams)
+
+  if (filters.value.notifyType) {
+    const targetTypes = NOTIFY_TYPE_TO_TYPES[filters.value.notifyType] || []
+    if (targetTypes.length > 0) {
+      result = result.filter(n => targetTypes.includes(n.type))
+    }
+  }
+
+  return result
 })
 
 const selectAll = computed({
@@ -312,20 +343,26 @@ function handleAction(notification) {
   }
 
   if (notification.actionType === 'makeup') {
+    const query = {}
+    if (notification.extra?.date) query.date = notification.extra.date
+    if (notification.extra?.type) query.type = notification.extra.type
+    if (notification.extra?.requestId) query.requestId = notification.extra.requestId
     router.push({
       path: '/makeup',
-      query: {
-        date: notification.extra?.date || '',
-        type: notification.extra?.type || 'checkin'
-      }
+      query
     })
   } else if (notification.actionType === 'approve') {
+    const query = {}
+    if (notification.extra?.requestId) query.requestId = notification.extra.requestId
+    if (notification.extra?.requestType) query.requestType = notification.extra.requestType
+    if (notification.extra?.applicantId) query.applicantId = notification.extra.applicantId
+
     if (notification.extra?.requestType === 'makeup') {
-      router.push('/makeup')
+      router.push({ path: '/makeup', query })
     } else if (notification.extra?.requestType === 'leave') {
-      router.push('/leave')
+      router.push({ path: '/leave', query })
     } else if (notification.extra?.requestType === 'overtime') {
-      router.push('/overtime')
+      router.push({ path: '/overtime', query })
     }
   }
 }

@@ -159,6 +159,8 @@
           v-for="request in filteredRequests"
           :key="request.id"
           class="request-item"
+          :class="{ 'request-highlight': highlightedId && request.id === highlightedId }"
+          :ref="el => setRequestRef(el, request.id)"
         >
           <div class="request-header">
             <div class="request-info">
@@ -169,6 +171,9 @@
                 {{ getLeaveTypeLabel(request.leaveType) }}
               </span>
               <span class="request-date">{{ request.startDate }} ~ {{ request.endDate }}</span>
+              <span v-if="request.employeeName && request.employeeId !== currentUser?.id" class="request-applicant">
+                申请人：{{ request.employeeName }}
+              </span>
             </div>
             <span class="request-status" :class="request.status">
               {{ getStatusText(request.status) }}
@@ -200,7 +205,8 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted, watch } from 'vue'
+import { ref, computed, reactive, onMounted, onUpdated, watch, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
 import { useVacationStore } from '@/store/vacation'
@@ -208,12 +214,23 @@ import { LEAVE_TYPES, getLeaveTypeLabel } from '@/utils/attendance'
 import { formatDate } from '@/utils/date'
 import { VACATION_TYPES } from '@/utils/vacation'
 
+const route = useRoute()
+const router = useRouter()
 const employeeStore = useEmployeeStore()
 const attendanceStore = useAttendanceStore()
 const vacationStore = useVacationStore()
 
 const activeTab = ref('all')
-const isAdmin = ref(true)
+const highlightedId = ref('')
+const isApprovalMode = ref(false)
+const requestRefs = new Map()
+
+const isAdmin = computed(() => {
+  if (!currentUser.value?.roles) return false
+  return currentUser.value.roles.includes('manager') ||
+         currentUser.value.roles.includes('hr') ||
+         currentUser.value.roles.includes('supervisor')
+})
 
 const requiresBalanceCheck = ['annual', 'lieu']
 
@@ -251,8 +268,82 @@ const errors = reactive({
 
 const currentUser = computed(() => employeeStore.currentUser)
 
+function setRequestRef(el, id) {
+  if (el) {
+    requestRefs.set(id, el)
+  } else {
+    requestRefs.delete(id)
+  }
+}
+
+function scrollToRequest(id) {
+  nextTick(() => {
+    const el = requestRefs.get(id)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  })
+}
+
+function handleParamsChange() {
+  const startDateFromQuery = route.query.startDate
+  const requestIdFromQuery = route.query.requestId
+  const applicantIdFromQuery = route.query.applicantId
+  const requestTypeFromQuery = route.query.requestType
+
+  if (startDateFromQuery && typeof startDateFromQuery === 'string') {
+    formData.startDate = startDateFromQuery
+  }
+
+  if (applicantIdFromQuery && typeof applicantIdFromQuery === 'string' && isAdmin.value) {
+    isApprovalMode.value = true
+    activeTab.value = 'pending'
+  }
+
+  if (requestIdFromQuery && typeof requestIdFromQuery === 'string') {
+    highlightedId.value = requestIdFromQuery
+  }
+}
+
+function highlightAndScroll() {
+  const requestIdFromQuery = route.query.requestId
+  if (requestIdFromQuery) {
+    highlightedId.value = requestIdFromQuery
+    scrollToRequest(requestIdFromQuery)
+    setTimeout(() => scrollToRequest(requestIdFromQuery), 200)
+    setTimeout(() => {
+      highlightedId.value = ''
+    }, 3000)
+  }
+}
+
+onMounted(() => {
+  handleParamsChange()
+  highlightAndScroll()
+})
+
+onUpdated(() => {
+  highlightAndScroll()
+})
+
+watch(
+  () => [route.query.startDate, route.query.requestId, route.query.applicantId, route.query.requestType],
+  () => {
+    handleParamsChange()
+    highlightAndScroll()
+  }
+)
+
 const myRequests = computed(() => {
   if (!currentUser.value) return []
+  if (isApprovalMode.value && isAdmin.value) {
+    const applicantIdFromQuery = route.query.applicantId
+    let allRequests = attendanceStore.leaveRequests
+    if (applicantIdFromQuery && typeof applicantIdFromQuery === 'string') {
+      allRequests = allRequests.filter(r => r.employeeId === applicantIdFromQuery)
+    }
+    return allRequests
+  }
   return attendanceStore.getEmployeeLeaveRequests(currentUser.value.id)
 })
 
@@ -774,6 +865,30 @@ function rejectRequest(id) {
   font-weight: 600;
   color: #333;
   font-size: 14px;
+}
+
+.request-applicant {
+  font-size: 12px;
+  color: #999;
+  padding: 2px 8px;
+  background: #f5f5f5;
+  border-radius: 6px;
+}
+
+.request-item.request-highlight {
+  border-color: #667eea;
+  background: #f0f5ff;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+  animation: highlightPulse 1.5s ease-in-out 2;
+}
+
+@keyframes highlightPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.4);
+  }
 }
 
 .request-days {
