@@ -65,6 +65,32 @@
       </div>
     </div>
 
+    <div class="card overtime-stats-card">
+      <h4 class="card-title">本月加班统计</h4>
+      <div class="overtime-stats-grid">
+        <div class="overtime-stat-item main">
+          <div class="ot-value" style="color: #eb2f96">{{ monthStats.overtime }}</div>
+          <div class="ot-label">加班天数</div>
+        </div>
+        <div class="overtime-stat-item main highlight">
+          <div class="ot-value" style="color: #f5222d">{{ monthStats.overtimeHours }} h</div>
+          <div class="ot-label">总计薪工时</div>
+        </div>
+        <div class="overtime-stat-item">
+          <div class="ot-value" style="color: #fa8c16">{{ monthStats.weekdayOvertimeHours }} h</div>
+          <div class="ot-label">工作日加班 (1.5倍)</div>
+        </div>
+        <div class="overtime-stat-item">
+          <div class="ot-value" style="color: #722ed1">{{ monthStats.weekendOvertimeHours }} h</div>
+          <div class="ot-label">周末加班 (2倍)</div>
+        </div>
+        <div class="overtime-stat-item">
+          <div class="ot-value" style="color: #f5222d">{{ monthStats.holidayOvertimeHours }} h</div>
+          <div class="ot-label">节假日加班 (3倍)</div>
+        </div>
+      </div>
+    </div>
+
     <div class="card legend-card">
       <div class="legend-title">图例说明</div>
       <div class="legend-items">
@@ -91,6 +117,10 @@
         <div class="legend-item">
           <span class="legend-dot" style="background: #722ed1"></span>
           <span>请假</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot" style="background: #eb2f96"></span>
+          <span>加班</span>
         </div>
       </div>
     </div>
@@ -177,6 +207,27 @@
               <span class="detail-value">{{ selectedDayRecord.checkOutTime }}</span>
             </div>
           </template>
+          <div v-if="selectedDayRecord.isOvertime" class="overtime-detail">
+            <div class="overtime-detail-header">
+              <span class="overtime-icon">⏱️</span>
+              <span class="overtime-type-badge" :style="{ background: getOvertimeTypeColor(selectedDayRecord.overtimeType) + '20', color: getOvertimeTypeColor(selectedDayRecord.overtimeType) }">
+                {{ getOvertimeTypeLabel(selectedDayRecord.overtimeType) }}
+              </span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">加班时段</span>
+              <span class="detail-value">{{ selectedDayRecord.overtimeStartTime }} - {{ selectedDayRecord.overtimeEndTime }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">计薪工时</span>
+              <span class="detail-value overtime-hours">
+                {{ selectedDayRecord.overtimeHours }} 小时
+                <span class="ot-rate-note">
+                  ({{ getOvertimeTypeLabel(selectedDayRecord.overtimeType) }} ×{{ getOvertimeTypeRate(selectedDayRecord.overtimeType) }})
+                </span>
+              </span>
+            </div>
+          </div>
           <div class="detail-row">
             <span class="detail-label">当日状态</span>
             <span class="detail-status-badge" :style="{ background: getStatusBgColor(selectedDayStatus), color: getStatusColor(selectedDayStatus) }">
@@ -187,7 +238,7 @@
             <span class="detail-label">补卡说明</span>
             <span class="detail-value makeup">✓ 已通过补卡申请</span>
           </div>
-          <div class="detail-row" v-if="!selectedDayRecord.isLeave && !selectedDayRecord.makeupApproved && selectedDayStatus !== 'normal'">
+          <div class="detail-row" v-if="!selectedDayRecord.isLeave && !selectedDayRecord.makeupApproved && selectedDayStatus !== 'normal' && selectedDayStatus !== 'overtime'">
             <span class="detail-label">操作</span>
             <div class="detail-actions">
               <button class="makeup-btn" @click="goToMakeup(selectedDay.date)">
@@ -224,7 +275,7 @@ import { useRouter } from 'vue-router'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
 import { getWeekDays, getCalendarDays, formatMonthDisplay, isWeekend, getToday } from '@/utils/date'
-import { getStatusText, getStatusColor, getStatusBgColor, getCheckInStatus, getCheckOutStatus, getDayStatus, getLeaveTypeLabel, ATTENDANCE_STATUS } from '@/utils/attendance'
+import { getStatusText, getStatusColor, getStatusBgColor, getCheckInStatus, getCheckOutStatus, getDayStatus, getLeaveTypeLabel, ATTENDANCE_STATUS, getOvertimeTypeLabel, getOvertimeTypeColor, getOvertimeTypeRate } from '@/utils/attendance'
 
 const router = useRouter()
 
@@ -544,6 +595,89 @@ watch(selectedEmployeeId, () => {
   grid-template-columns: repeat(3, 1fr);
   gap: 10px 16px;
   width: 100%;
+}
+
+.overtime-stats-card {
+  background: linear-gradient(135deg, #fff0f6 0%, #fff7e6 100%);
+}
+
+.overtime-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+.overtime-stat-item {
+  text-align: center;
+  padding: 12px 8px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  min-width: 0;
+}
+
+.overtime-stat-item.main {
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.overtime-stat-item.main .ot-value {
+  font-size: 26px;
+}
+
+.overtime-stat-item.main.highlight .ot-value {
+  font-weight: 700;
+}
+
+.ot-value {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+
+.ot-label {
+  font-size: 11px;
+  color: #666;
+  white-space: nowrap;
+}
+
+.overtime-detail {
+  margin: 16px 0;
+  padding: 16px;
+  background: #fff0f6;
+  border-radius: 12px;
+  border: 1px solid #ffadd2;
+}
+
+.overtime-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.overtime-icon {
+  font-size: 24px;
+}
+
+.overtime-type-badge {
+  padding: 5px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.overtime-hours {
+  color: #eb2f96 !important;
+  font-weight: 700;
+  font-size: 16px !important;
+}
+
+.ot-rate-note {
+  font-size: 11px;
+  color: #999;
+  font-weight: 400;
+  margin-left: 6px;
 }
 
 .legend-item {
@@ -1002,6 +1136,19 @@ watch(selectedEmployeeId, () => {
   .stats-grid {
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
+  }
+
+  .overtime-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .overtime-stat-item.main {
+    grid-column: span 1;
+  }
+
+  .overtime-stat-item.main.highlight {
+    grid-column: span 1;
   }
 
   .stat-item {

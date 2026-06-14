@@ -8,7 +8,8 @@ export const ATTENDANCE_STATUS = {
   ABSENT: 'absent',
   NOT_CHECKED: 'not_checked',
   MAKEUP: 'makeup',
-  LEAVE: 'leave'
+  LEAVE: 'leave',
+  OVERTIME: 'overtime'
 }
 
 export const STATUS_TEXT = {
@@ -18,7 +19,8 @@ export const STATUS_TEXT = {
   [ATTENDANCE_STATUS.ABSENT]: '缺勤',
   [ATTENDANCE_STATUS.NOT_CHECKED]: '未打卡',
   [ATTENDANCE_STATUS.MAKEUP]: '补卡',
-  [ATTENDANCE_STATUS.LEAVE]: '请假'
+  [ATTENDANCE_STATUS.LEAVE]: '请假',
+  [ATTENDANCE_STATUS.OVERTIME]: '加班'
 }
 
 export const STATUS_COLOR = {
@@ -28,7 +30,8 @@ export const STATUS_COLOR = {
   [ATTENDANCE_STATUS.ABSENT]: '#f5222d',
   [ATTENDANCE_STATUS.NOT_CHECKED]: '#bfbfbf',
   [ATTENDANCE_STATUS.MAKEUP]: '#1890ff',
-  [ATTENDANCE_STATUS.LEAVE]: '#722ed1'
+  [ATTENDANCE_STATUS.LEAVE]: '#722ed1',
+  [ATTENDANCE_STATUS.OVERTIME]: '#eb2f96'
 }
 
 export const STATUS_BG_COLOR = {
@@ -38,7 +41,8 @@ export const STATUS_BG_COLOR = {
   [ATTENDANCE_STATUS.ABSENT]: '#fff1f0',
   [ATTENDANCE_STATUS.NOT_CHECKED]: '#fafafa',
   [ATTENDANCE_STATUS.MAKEUP]: '#e6f7ff',
-  [ATTENDANCE_STATUS.LEAVE]: '#f9f0ff'
+  [ATTENDANCE_STATUS.LEAVE]: '#f9f0ff',
+  [ATTENDANCE_STATUS.OVERTIME]: '#fff0f6'
 }
 
 export const LEAVE_TYPES = [
@@ -219,6 +223,10 @@ export function getDayStatus(record) {
     return ATTENDANCE_STATUS.MAKEUP
   }
 
+  if (record.isOvertime) {
+    return ATTENDANCE_STATUS.OVERTIME
+  }
+
   const checkInStatus = record.checkIn ? getCheckInStatus(record.checkIn) : ATTENDANCE_STATUS.NOT_CHECKED
   const checkOutStatus = record.checkOut ? getCheckOutStatus(record.checkOut) : ATTENDANCE_STATUS.NOT_CHECKED
 
@@ -280,19 +288,41 @@ export function calculateAttendanceStats(records, year, month) {
     earlyLeave: 0,
     absent: 0,
     makeup: 0,
-    leave: 0
+    leave: 0,
+    overtime: 0,
+    overtimeHours: 0,
+    weekdayOvertimeHours: 0,
+    weekendOvertimeHours: 0,
+    holidayOvertimeHours: 0
   }
 
   const daysInMonth = new Date(year, month, 0).getDate()
 
   for (let day = 1; day <= daysInMonth; day++) {
     const date = new Date(year, month - 1, day)
-    if (date.getDay() === 0 || date.getDay() === 6) continue
-
-    stats.total++
+    const isWeekend = date.getDay() === 0 || date.getDay() === 6
+    if (!isWeekend) {
+      stats.total++
+    }
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     const record = records[dateStr]
     const status = getDayStatus(record)
+
+    if (record && record.isOvertime && record.overtimeHours) {
+      stats.overtime++
+      const otHours = parseFloat(record.overtimeHours) || 0
+      stats.overtimeHours += otHours
+      
+      if (record.overtimeType === 'weekday') {
+        stats.weekdayOvertimeHours += otHours
+      } else if (record.overtimeType === 'weekend') {
+        stats.weekendOvertimeHours += otHours
+      } else if (record.overtimeType === 'holiday') {
+        stats.holidayOvertimeHours += otHours
+      }
+    }
+
+    if (isWeekend) continue
 
     switch (status) {
       case ATTENDANCE_STATUS.NORMAL:
@@ -314,8 +344,16 @@ export function calculateAttendanceStats(records, year, month) {
       case ATTENDANCE_STATUS.LEAVE:
         stats.leave++
         break
+      case ATTENDANCE_STATUS.OVERTIME:
+        stats.normal++
+        break
     }
   }
+
+  stats.overtimeHours = Math.round(stats.overtimeHours * 100) / 100
+  stats.weekdayOvertimeHours = Math.round(stats.weekdayOvertimeHours * 100) / 100
+  stats.weekendOvertimeHours = Math.round(stats.weekendOvertimeHours * 100) / 100
+  stats.holidayOvertimeHours = Math.round(stats.holidayOvertimeHours * 100) / 100
 
   return stats
 }
