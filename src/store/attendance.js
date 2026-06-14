@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { getAttendanceRecords, setAttendanceRecords, getMakeupRequests, setMakeupRequests, getLeaveRequests, setLeaveRequests, getOvertimeRequests, setOvertimeRequests } from '@/utils/storage'
 import { getToday, getCurrentTime, getNow, formatDate, parseTime } from '@/utils/date'
-import { getCheckInStatus, getCheckOutStatus, getDayStatus, generateMonthCalendarData, calculateAttendanceStats, ATTENDANCE_STATUS, LEAVE_TYPES, getLeaveTypeLabel, OVERTIME_STATUS, OVERTIME_TYPES, getOvertimeStatusText, getOvertimeTypeLabel, isOvertimeFinalApproved, isOvertimeRejected, calculateOvertimeHours, getCheckInStatusWithShift, getCheckOutStatusWithShift, getDayStatusWithShift } from '@/utils/attendance'
+import { getCheckInStatus, getCheckOutStatus, getDayStatus, generateMonthCalendarData, calculateAttendanceStats, ATTENDANCE_STATUS, LEAVE_TYPES, getLeaveTypeLabel, OVERTIME_STATUS, OVERTIME_TYPES, getOvertimeStatusText, getOvertimeTypeLabel, isOvertimeFinalApproved, isOvertimeRejected, calculateOvertimeHours, getCheckInStatusWithShift, getCheckOutStatusWithShift, getDayStatusWithShift, calculateAttendanceStatsWithShift } from '@/utils/attendance'
 
 function generateMockRecords() {
   const records = {}
@@ -101,11 +101,14 @@ export const useAttendanceStore = defineStore('attendance', {
       return calculateAttendanceStats(employeeRecords, year, month)
     },
 
-    getDepartmentMonthStats: (state) => (employeeIds, year, month) => {
+    getDepartmentMonthStats: (state) => (employeeIds, year, month, shiftMaps = null) => {
       const combined = { total: 0, normal: 0, late: 0, earlyLeave: 0, absent: 0, makeup: 0 }
       employeeIds.forEach(empId => {
         const employeeRecords = state.records[empId] || {}
-        const stats = calculateAttendanceStats(employeeRecords, year, month)
+        const empShiftMap = shiftMaps && shiftMaps[empId] ? shiftMaps[empId] : null
+        const stats = empShiftMap
+          ? calculateAttendanceStatsWithShift(employeeRecords, year, month, empShiftMap)
+          : calculateAttendanceStats(employeeRecords, year, month)
         Object.keys(combined).forEach(key => {
           combined[key] += stats[key]
         })
@@ -113,13 +116,18 @@ export const useAttendanceStore = defineStore('attendance', {
       return combined
     },
 
-    getDepartmentMonthTrend: (state) => (employeeIds, year) => {
+    getDepartmentMonthTrend: (state) => (employeeIds, year, shiftMapsByMonth = null) => {
       const trend = []
       for (let m = 1; m <= 12; m++) {
         const combined = { total: 0, normal: 0, late: 0, earlyLeave: 0, absent: 0, makeup: 0 }
         employeeIds.forEach(empId => {
           const employeeRecords = state.records[empId] || {}
-          const stats = calculateAttendanceStats(employeeRecords, year, m)
+          const empShiftMap = shiftMapsByMonth && shiftMapsByMonth[empId] && shiftMapsByMonth[empId][m]
+            ? shiftMapsByMonth[empId][m]
+            : null
+          const stats = empShiftMap
+            ? calculateAttendanceStatsWithShift(employeeRecords, year, m, empShiftMap)
+            : calculateAttendanceStats(employeeRecords, year, m)
           Object.keys(combined).forEach(key => {
             combined[key] += stats[key]
           })
@@ -129,23 +137,30 @@ export const useAttendanceStore = defineStore('attendance', {
       return trend
     },
 
-    getDepartmentAbnormalEmployees: (state) => (employeeIds, year, month) => {
+    getDepartmentAbnormalEmployees: (state) => (employeeIds, year, month, shiftMaps = null) => {
       const result = []
       const daysInMonth = new Date(year, month, 0).getDate()
       employeeIds.forEach(empId => {
         const employeeRecords = state.records[empId] || {}
-        const stats = calculateAttendanceStats(employeeRecords, year, month)
+        const empShiftMap = shiftMaps && shiftMaps[empId] ? shiftMaps[empId] : null
+        const stats = empShiftMap
+          ? calculateAttendanceStatsWithShift(employeeRecords, year, month, empShiftMap)
+          : calculateAttendanceStats(employeeRecords, year, month)
         const abnormalCount = stats.late + stats.earlyLeave + stats.absent + stats.makeup
         if (abnormalCount > 0) {
           const details = []
           for (let day = 1; day <= daysInMonth; day++) {
-            const date = new Date(year, month - 1, day)
-            if (date.getDay() === 0 || date.getDay() === 6) continue
             const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
             const record = employeeRecords[dateStr]
-            const status = getDayStatus(record)
-            if (status !== ATTENDANCE_STATUS.NORMAL) {
-              details.push({ date: dateStr, status, record })
+            const shiftType = empShiftMap ? empShiftMap[dateStr] : null
+            if (shiftType === 'rest' && !record) continue
+            const date = new Date(year, month - 1, day)
+            if (!shiftType && (date.getDay() === 0 || date.getDay() === 6)) continue
+            const status = shiftType
+              ? getDayStatusWithShift(record, shiftType)
+              : getDayStatus(record)
+            if (status !== ATTENDANCE_STATUS.NORMAL && status !== ATTENDANCE_STATUS.LEAVE) {
+              details.push({ date: dateStr, status, record, shiftType: shiftType || null })
             }
           }
           result.push({ employeeId: empId, ...stats, abnormalCount, details })

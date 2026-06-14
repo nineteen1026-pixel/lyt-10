@@ -160,12 +160,17 @@
               <div class="detail-table">
                 <div class="detail-table-header">
                   <span class="col-date">日期</span>
+                  <span class="col-shift">班次</span>
                   <span class="col-status">状态</span>
                   <span class="col-checkin">上班</span>
                   <span class="col-checkout">下班</span>
                 </div>
                 <div v-for="d in emp.details" :key="d.date" class="detail-table-row">
                   <span class="col-date">{{ formatDateShort(d.date) }}</span>
+                  <span class="col-shift">
+                    <span v-if="d.shiftType" class="shift-badge-dept" :style="{ background: getShiftColor(d.shiftType) + '20', color: getShiftColor(d.shiftType) }">{{ getShiftLabel(d.shiftType) }}</span>
+                    <span v-else class="shift-badge-dept default-shift">默认</span>
+                  </span>
                   <span class="col-status">
                     <span class="status-badge" :style="{ background: getDisplayStatusBgColor(d.status), color: getDisplayStatusColor(d.status) }">
                       {{ getDisplayStatusText(d.status) }}
@@ -187,8 +192,10 @@
 import { ref, computed, watch } from 'vue'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
+import { useScheduleStore } from '@/store/schedule'
 import { formatMonthDisplay } from '@/utils/date'
 import { getStatusText, getStatusColor, getStatusBgColor, ATTENDANCE_STATUS } from '@/utils/attendance'
+import { getShiftLabel, getShiftColor } from '@/utils/schedule'
 
 function getDisplayStatusText(status) {
   if (status === ATTENDANCE_STATUS.NOT_CHECKED) return '缺勤'
@@ -207,6 +214,7 @@ function getDisplayStatusBgColor(status) {
 
 const employeeStore = useEmployeeStore()
 const attendanceStore = useAttendanceStore()
+const scheduleStore = useScheduleStore()
 
 const now = new Date()
 const currentYear = ref(now.getFullYear())
@@ -234,8 +242,38 @@ const targetEmployeeIds = computed(() => {
   return employeeStore.getEmployeesByDepartment(selectedDeptId.value).map(e => e.id)
 })
 
+const shiftMaps = computed(() => {
+  const maps = {}
+  targetEmployeeIds.value.forEach(empId => {
+    const empSchedule = scheduleStore.getEmployeeMonthSchedule(empId, currentYear.value, currentMonth.value)
+    if (empSchedule && Object.keys(empSchedule).length > 0) {
+      maps[empId] = empSchedule
+    }
+  })
+  return Object.keys(maps).length > 0 ? maps : null
+})
+
+const shiftMapsForTrend = computed(() => {
+  const maps = {}
+  targetEmployeeIds.value.forEach(empId => {
+    const empMonthMaps = {}
+    let hasAny = false
+    for (let m = 1; m <= 12; m++) {
+      const empSchedule = scheduleStore.getEmployeeMonthSchedule(empId, currentYear.value, m)
+      if (empSchedule && Object.keys(empSchedule).length > 0) {
+        empMonthMaps[m] = empSchedule
+        hasAny = true
+      }
+    }
+    if (hasAny) {
+      maps[empId] = empMonthMaps
+    }
+  })
+  return Object.keys(maps).length > 0 ? maps : null
+})
+
 const deptStats = computed(() => {
-  return attendanceStore.getDepartmentMonthStats(targetEmployeeIds.value, currentYear.value, currentMonth.value)
+  return attendanceStore.getDepartmentMonthStats(targetEmployeeIds.value, currentYear.value, currentMonth.value, shiftMaps.value)
 })
 
 const attendanceRate = computed(() => {
@@ -244,7 +282,7 @@ const attendanceRate = computed(() => {
 })
 
 const trendData = computed(() => {
-  return attendanceStore.getDepartmentMonthTrend(targetEmployeeIds.value, currentYear.value)
+  return attendanceStore.getDepartmentMonthTrend(targetEmployeeIds.value, currentYear.value, shiftMapsForTrend.value)
 })
 
 const chartMax = computed(() => {
@@ -255,7 +293,7 @@ const chartMax = computed(() => {
 const chartMaxLabel = computed(() => chartMax.value)
 
 const abnormalEmployees = computed(() => {
-  return attendanceStore.getDepartmentAbnormalEmployees(targetEmployeeIds.value, currentYear.value, currentMonth.value)
+  return attendanceStore.getDepartmentAbnormalEmployees(targetEmployeeIds.value, currentYear.value, currentMonth.value, shiftMaps.value)
 })
 
 function getBarHeight(value, max) {
@@ -705,8 +743,8 @@ watch(currentYear, () => {
 
 .detail-table-header {
   display: grid;
-  grid-template-columns: 70px 70px 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: 60px 50px 60px 1fr 1fr;
+  gap: 6px;
   padding: 8px 0;
   font-size: 12px;
   color: #999;
@@ -716,8 +754,8 @@ watch(currentYear, () => {
 
 .detail-table-row {
   display: grid;
-  grid-template-columns: 70px 70px 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: 60px 50px 60px 1fr 1fr;
+  gap: 6px;
   padding: 8px 0;
   font-size: 13px;
   color: #333;
@@ -737,7 +775,21 @@ watch(currentYear, () => {
   white-space: nowrap;
 }
 
+.shift-badge-dept {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.shift-badge-dept.default-shift {
+  background: #f5f5f5;
+  color: #999;
+}
+
 .col-date,
+.col-shift,
 .col-status,
 .col-checkin,
 .col-checkout {
@@ -841,7 +893,7 @@ watch(currentYear, () => {
 
   .detail-table-header,
   .detail-table-row {
-    grid-template-columns: 60px 60px 1fr 1fr;
+    grid-template-columns: 50px 44px 52px 1fr 1fr;
     font-size: 12px;
   }
 }
