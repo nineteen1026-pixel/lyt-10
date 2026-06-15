@@ -72,6 +72,10 @@
           <div class="stat-value" style="color: #722ed1">{{ deptStats.leave }}</div>
           <div class="stat-label">请假</div>
         </div>
+        <div class="stat-item">
+          <div class="stat-value" style="color: #13c2c2">{{ deptStats.businessTrip || 0 }}</div>
+          <div class="stat-label">出差</div>
+        </div>
       </div>
       <div class="attendance-rate-bar">
         <div class="rate-label">

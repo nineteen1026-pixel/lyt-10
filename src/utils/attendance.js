@@ -10,7 +10,8 @@ export const ATTENDANCE_STATUS = {
   NOT_CHECKED: 'not_checked',
   MAKEUP: 'makeup',
   LEAVE: 'leave',
-  OVERTIME: 'overtime'
+  OVERTIME: 'overtime',
+  BUSINESS_TRIP: 'business_trip'
 }
 
 export const STATUS_TEXT = {
@@ -21,7 +22,8 @@ export const STATUS_TEXT = {
   [ATTENDANCE_STATUS.NOT_CHECKED]: '未打卡',
   [ATTENDANCE_STATUS.MAKEUP]: '补卡',
   [ATTENDANCE_STATUS.LEAVE]: '请假',
-  [ATTENDANCE_STATUS.OVERTIME]: '加班'
+  [ATTENDANCE_STATUS.OVERTIME]: '加班',
+  [ATTENDANCE_STATUS.BUSINESS_TRIP]: '出差'
 }
 
 export const STATUS_COLOR = {
@@ -32,7 +34,8 @@ export const STATUS_COLOR = {
   [ATTENDANCE_STATUS.NOT_CHECKED]: '#bfbfbf',
   [ATTENDANCE_STATUS.MAKEUP]: '#1890ff',
   [ATTENDANCE_STATUS.LEAVE]: '#722ed1',
-  [ATTENDANCE_STATUS.OVERTIME]: '#eb2f96'
+  [ATTENDANCE_STATUS.OVERTIME]: '#eb2f96',
+  [ATTENDANCE_STATUS.BUSINESS_TRIP]: '#13c2c2'
 }
 
 export const STATUS_BG_COLOR = {
@@ -43,7 +46,8 @@ export const STATUS_BG_COLOR = {
   [ATTENDANCE_STATUS.NOT_CHECKED]: '#fafafa',
   [ATTENDANCE_STATUS.MAKEUP]: '#e6f7ff',
   [ATTENDANCE_STATUS.LEAVE]: '#f9f0ff',
-  [ATTENDANCE_STATUS.OVERTIME]: '#fff0f6'
+  [ATTENDANCE_STATUS.OVERTIME]: '#fff0f6',
+  [ATTENDANCE_STATUS.BUSINESS_TRIP]: '#e6fffb'
 }
 
 export const LEAVE_TYPES = [
@@ -217,6 +221,10 @@ export function getCheckOutStatus(checkOutTime) {
 export function getDayStatus(record) {
   if (!record) return ATTENDANCE_STATUS.NOT_CHECKED
 
+  if (record.isBusinessTrip) {
+    return ATTENDANCE_STATUS.BUSINESS_TRIP
+  }
+
   if (record.isLeave) {
     return ATTENDANCE_STATUS.LEAVE
   }
@@ -292,6 +300,7 @@ export function calculateAttendanceStats(records, year, month) {
     makeup: 0,
     leave: 0,
     overtime: 0,
+    businessTrip: 0,
     overtimeHours: 0,
     weekdayOvertimeHours: 0,
     weekendOvertimeHours: 0,
@@ -345,6 +354,9 @@ export function calculateAttendanceStats(records, year, month) {
         break
       case ATTENDANCE_STATUS.LEAVE:
         stats.leave++
+        break
+      case ATTENDANCE_STATUS.BUSINESS_TRIP:
+        stats.businessTrip++
         break
       case ATTENDANCE_STATUS.OVERTIME:
         stats.normal++
@@ -403,6 +415,7 @@ export function getDayStatusWithShift(record, shiftType) {
   if (!record) return ATTENDANCE_STATUS.NOT_CHECKED
   if (shiftType === 'rest') return ATTENDANCE_STATUS.LEAVE
 
+  if (record.isBusinessTrip) return ATTENDANCE_STATUS.BUSINESS_TRIP
   if (record.isLeave) return ATTENDANCE_STATUS.LEAVE
   if (record.makeupApproved) return ATTENDANCE_STATUS.MAKEUP
   if (record.isOvertime) return ATTENDANCE_STATUS.OVERTIME
@@ -453,6 +466,7 @@ export function calculateAttendanceStatsWithShift(records, year, month, shiftMap
     makeup: 0,
     leave: 0,
     overtime: 0,
+    businessTrip: 0,
     overtimeHours: 0,
     weekdayOvertimeHours: 0,
     weekendOvertimeHours: 0,
@@ -511,6 +525,9 @@ export function calculateAttendanceStatsWithShift(records, year, month, shiftMap
         break
       case ATTENDANCE_STATUS.LEAVE:
         stats.leave++
+        break
+      case ATTENDANCE_STATUS.BUSINESS_TRIP:
+        stats.businessTrip++
         break
       case ATTENDANCE_STATUS.OVERTIME:
         stats.normal++

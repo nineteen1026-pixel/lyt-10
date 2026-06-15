@@ -62,6 +62,10 @@
           <div class="stat-value" style="color: #722ed1">{{ monthStats.leave }}</div>
           <div class="stat-label">请假</div>
         </div>
+        <div class="stat-item">
+          <div class="stat-value" style="color: #13c2c2">{{ monthStats.businessTrip || 0 }}</div>
+          <div class="stat-label">出差</div>
+        </div>
       </div>
     </div>
 
@@ -122,6 +126,10 @@
           <span class="legend-dot" style="background: #eb2f96"></span>
           <span>加班</span>
         </div>
+        <div class="legend-item">
+          <span class="legend-dot" style="background: #13c2c2"></span>
+          <span>出差</span>
+        </div>
       </div>
     </div>
 
@@ -178,6 +186,11 @@
             <div class="leave-icon">🏖️</div>
             <div class="leave-title">{{ getLeaveTypeLabel(selectedDayRecord.leaveType) }}</div>
             <div class="leave-desc">当日请假，已通过审批</div>
+          </div>
+          <div v-else-if="selectedDayRecord.isBusinessTrip" class="leave-detail">
+            <div class="leave-icon">✈️</div>
+            <div class="leave-title">出差</div>
+            <div class="leave-desc">当日出差，已通过审批，考勤自动豁免</div>
           </div>
           <template v-else>
             <div class="detail-row" v-if="selectedDayShiftType">
@@ -247,7 +260,7 @@
             <span class="detail-label">补卡说明</span>
             <span class="detail-value makeup">✓ 已通过补卡申请</span>
           </div>
-          <div class="detail-row" v-if="!selectedDayRecord.isLeave && !selectedDayRecord.makeupApproved && selectedDayStatus !== 'normal' && selectedDayStatus !== 'overtime'">
+          <div class="detail-row" v-if="!selectedDayRecord.isLeave && !selectedDayRecord.isBusinessTrip && !selectedDayRecord.makeupApproved && selectedDayStatus !== 'normal' && selectedDayStatus !== 'overtime'">
             <span class="detail-label">操作</span>
             <div class="detail-actions">
               <button class="makeup-btn" @click="goToMakeup(selectedDay.date)">

@@ -60,6 +60,34 @@ const routes = [
     }
   },
   {
+    path: '/business-trip',
+    name: 'BusinessTrip',
+    component: () => import('@/views/BusinessTrip.vue'),
+    meta: {
+      title: '出差申请',
+      icon: '✈️'
+    }
+  },
+  {
+    path: '/business-trip-approve',
+    name: 'BusinessTripApprove',
+    component: () => import('@/views/BusinessTripApprove.vue'),
+    meta: {
+      title: '出差审批',
+      icon: '📝',
+      requiresApprover: true
+    }
+  },
+  {
+    path: '/business-trip-checkin',
+    name: 'BusinessTripCheckin',
+    component: () => import('@/views/BusinessTripCheckin.vue'),
+    meta: {
+      title: '出差签到',
+      icon: '📍'
+    }
+  },
+  {
     path: '/schedule',
     name: 'Schedule',
     component: () => import('@/views/Schedule.vue'),

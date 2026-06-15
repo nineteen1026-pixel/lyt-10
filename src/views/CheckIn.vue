@@ -22,27 +22,31 @@
       <div class="checkin-buttons">
         <button
           class="checkin-btn checkin-btn-primary"
-          :class="{ disabled: hasCheckedIn }"
+          :class="{ disabled: hasCheckedIn || isBusinessTrip }"
           @click="handleCheckIn"
         >
           <span class="btn-icon">☀️</span>
           <div class="btn-content">
-            <span class="btn-text">{{ hasCheckedIn ? '已打卡' : '上班打卡' }}</span>
+            <span class="btn-text">{{ isBusinessTrip ? '今日出差' : hasCheckedIn ? '已打卡' : '上班打卡' }}</span>
           </div>
           <span v-if="todayRecord?.checkIn" class="btn-time">{{ todayRecord.checkIn }}</span>
         </button>
 
         <button
           class="checkin-btn checkin-btn-secondary"
-          :class="{ disabled: !canCheckOut || hasCheckedOut }"
+          :class="{ disabled: !canCheckOut || hasCheckedOut || isBusinessTrip }"
           @click="handleCheckOut"
         >
           <span class="btn-icon">🌙</span>
           <div class="btn-content">
-            <span class="btn-text">{{ !canCheckOut ? '请先上班打卡' : hasCheckedOut ? '已打卡' : '下班打卡' }}</span>
+            <span class="btn-text">{{ isBusinessTrip ? '考勤豁免' : !canCheckOut ? '请先上班打卡' : hasCheckedOut ? '已打卡' : '下班打卡' }}</span>
           </div>
           <span v-if="todayRecord?.checkOut" class="btn-time">{{ todayRecord.checkOut }}</span>
         </button>
+      </div>
+      <div v-if="isBusinessTrip" class="business-trip-tip">
+        <span class="tip-icon">✈️</span>
+        <span class="tip-text">今日出差中，考勤自动豁免，请前往出差签到页面打卡</span>
       </div>
     </div>
 
@@ -145,6 +149,7 @@ const todayRecord = computed(() => {
 const hasCheckedIn = computed(() => !!todayRecord.value?.checkIn)
 const hasCheckedOut = computed(() => !!todayRecord.value?.checkOut)
 const canCheckOut = computed(() => hasCheckedIn.value)
+const isBusinessTrip = computed(() => !!todayRecord.value?.isBusinessTrip)
 
 const checkInStatus = computed(() => {
   if (todayShiftType.value) {
@@ -335,6 +340,27 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.business-trip-tip {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #e6fffb 0%, #b5f5ec 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #08979c;
+  font-size: 13px;
+}
+
+.business-trip-tip .tip-icon {
+  font-size: 20px;
+}
+
+.business-trip-tip .tip-text {
+  flex: 1;
+  font-weight: 500;
 }
 
 .checkin-btn {

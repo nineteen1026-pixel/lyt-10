@@ -4,6 +4,8 @@ const STORAGE_KEYS = {
   MAKEUP_REQUESTS: 'makeup_requests',
   LEAVE_REQUESTS: 'leave_requests',
   OVERTIME_REQUESTS: 'overtime_requests',
+  BUSINESS_TRIP_REQUESTS: 'business_trip_requests',
+  BUSINESS_TRIP_CHECKINS: 'business_trip_checkins',
   CURRENT_USER: 'current_user',
   SHIFT_TEMPLATES: 'shift_templates',
   MONTH_SCHEDULES: 'month_schedules',
@@ -150,6 +152,22 @@ export function getNotificationReadStatus() {
 
 export function setNotificationReadStatus(status) {
   return setStorage(STORAGE_KEYS.NOTIFICATION_READ_STATUS, status)
+}
+
+export function getBusinessTripRequests() {
+  return getStorage(STORAGE_KEYS.BUSINESS_TRIP_REQUESTS, [])
+}
+
+export function setBusinessTripRequests(requests) {
+  return setStorage(STORAGE_KEYS.BUSINESS_TRIP_REQUESTS, requests)
+}
+
+export function getBusinessTripCheckins() {
+  return getStorage(STORAGE_KEYS.BUSINESS_TRIP_CHECKINS, [])
+}
+
+export function setBusinessTripCheckins(checkins) {
+  return setStorage(STORAGE_KEYS.BUSINESS_TRIP_CHECKINS, checkins)
 }
 
 export { STORAGE_KEYS }

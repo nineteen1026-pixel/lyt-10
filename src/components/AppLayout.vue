@@ -110,10 +110,18 @@ const isAdmin = computed(() => {
          currentUser.value.roles.includes('supervisor')
 })
 
+const isApprover = computed(() => {
+  if (!currentUser.value?.roles) return false
+  return currentUser.value.roles.includes('supervisor') ||
+         currentUser.value.roles.includes('manager') ||
+         currentUser.value.roles.includes('hr')
+})
+
 const navRoutes = computed(() => {
   return router.options.routes.filter(r => {
     if (!r.meta || !r.meta.title) return false
     if (r.meta.requiresAdmin && !isAdmin.value) return false
+    if (r.meta.requiresApprover && !isApprover.value) return false
     return true
   })
 })
