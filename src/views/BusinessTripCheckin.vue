@@ -373,16 +373,33 @@ function getCurrentLocation() {
   if (locating.value) return
 
   locating.value = true
+  checkinForm.address = ''
 
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         checkinForm.latitude = position.coords.latitude
         checkinForm.longitude = position.coords.longitude
-        checkinForm.location = `当前位置 (${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)})`
-        checkinForm.address = 'GPS定位成功'
+
+        try {
+          const address = await reverseGeocode(position.coords.latitude, position.coords.longitude)
+          if (address) {
+            checkinForm.location = address
+            checkinForm.address = address
+            errors.location = ''
+          } else {
+            checkinForm.location = `当前位置 (${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)})`
+            checkinForm.address = 'GPS定位成功（未获取到详细地址）'
+            errors.location = ''
+          }
+        } catch (e) {
+          checkinForm.location = `当前位置 (${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)})`
+          checkinForm.address = 'GPS定位成功（地址解析失败）'
+          errors.location = ''
+        }
+
         locating.value = false
-        errors.location = ''
+        businessTripStore.showToast('定位成功', 'success')
       },
       (error) => {
         locating.value = false
@@ -397,6 +414,41 @@ function getCurrentLocation() {
   } else {
     locating.value = false
     businessTripStore.showToast('您的浏览器不支持定位功能', 'warning')
+  }
+}
+
+async function reverseGeocode(lat, lng) {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=zh-CN`,
+      {
+        headers: {
+          'User-Agent': 'AttendanceManagementSystem/1.0'
+        }
+      }
+    )
+
+    if (!response.ok) return null
+
+    const data = await response.json()
+    if (data && data.display_name) {
+      return data.display_name
+    }
+
+    if (data && data.address) {
+      const parts = []
+      if (data.address.road) parts.push(data.address.road)
+      if (data.address.neighbourhood) parts.push(data.address.neighbourhood)
+      if (data.address.suburb) parts.push(data.address.suburb)
+      if (data.address.district) parts.push(data.address.district)
+      if (data.address.city) parts.push(data.address.city)
+      if (data.address.province) parts.push(data.address.province)
+      return parts.join('，') || null
+    }
+
+    return null
+  } catch (error) {
+    return null
   }
 }
 

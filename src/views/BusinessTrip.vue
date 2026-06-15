@@ -256,7 +256,14 @@
 
           <div v-if="expandedId === request.id" class="request-detail">
             <div v-if="request.itinerary && request.itinerary.length > 0" class="detail-section">
-              <h5 class="detail-title">行程明细</h5>
+              <div class="detail-section-header">
+                <h5 class="detail-title">行程明细</h5>
+                <div v-if="isBusinessTripPending(request.status)" class="detail-section-actions">
+                  <button type="button" class="btn-link-add" @click.stop="openDetailItineraryModal(request.id)">
+                    <span class="add-icon">+</span> 添加行程
+                  </button>
+                </div>
+              </div>
               <div class="detail-itinerary">
                 <div
                   v-for="item in request.itinerary"
@@ -271,7 +278,29 @@
                     <div class="location">📍 {{ item.location }}</div>
                     <div class="description">{{ item.description }}</div>
                   </div>
+                  <div v-if="isBusinessTripPending(request.status)" class="itinerary-item-actions">
+                    <button type="button" class="item-action-btn edit" @click.stop="openDetailEditItineraryModal(request.id, item)">
+                      编辑
+                    </button>
+                    <button type="button" class="item-action-btn delete" @click.stop="deleteDetailItinerary(request.id, item.id)">
+                      删除
+                    </button>
+                  </div>
                 </div>
+              </div>
+            </div>
+            <div v-else-if="isBusinessTripPending(request.status)" class="detail-section">
+              <div class="detail-section-header">
+                <h5 class="detail-title">行程明细</h5>
+                <div class="detail-section-actions">
+                  <button type="button" class="btn-link-add" @click.stop="openDetailItineraryModal(request.id)">
+                    <span class="add-icon">+</span> 添加行程
+                  </button>
+                </div>
+              </div>
+              <div class="empty-itinerary detail-empty">
+                <span class="empty-icon">📋</span>
+                <p>暂无行程明细，点击右上角添加</p>
               </div>
             </div>
 
@@ -334,8 +363,13 @@
               type="date"
               class="form-input"
               :class="{ error: itineraryErrors.date }"
+              :min="formData.startDate"
+              :max="formData.endDate"
             />
             <span v-if="itineraryErrors.date" class="error-message">{{ itineraryErrors.date }}</span>
+            <p v-if="formData.startDate && formData.endDate" class="date-hint">
+              可选择范围：{{ formData.startDate }} ~ {{ formData.endDate }}
+            </p>
           </div>
 
           <div class="form-row form-row-inline">
@@ -403,6 +437,100 @@
         </div>
       </div>
     </div>
+
+    <div v-if="showDetailItineraryModal" class="modal-overlay" @click="closeDetailItineraryModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h4 class="modal-title">{{ detailItineraryEditingId ? '编辑行程' : '添加行程' }}</h4>
+          <button class="modal-close" @click="closeDetailItineraryModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-row">
+            <label class="form-label">
+              <span class="label-text">行程日期</span>
+              <span class="required">*</span>
+            </label>
+            <input
+              v-model="detailItineraryForm.date"
+              type="date"
+              class="form-input"
+              :class="{ error: detailItineraryErrors.date }"
+              :min="detailEditingRequest?.startDate"
+              :max="detailEditingRequest?.endDate"
+            />
+            <span v-if="detailItineraryErrors.date" class="error-message">{{ detailItineraryErrors.date }}</span>
+            <p v-if="detailEditingRequest" class="date-hint">
+              可选择范围：{{ detailEditingRequest.startDate }} ~ {{ detailEditingRequest.endDate }}
+            </p>
+          </div>
+
+          <div class="form-row form-row-inline">
+            <div class="form-col">
+              <label class="form-label">
+                <span class="label-text">开始时间</span>
+                <span class="required">*</span>
+              </label>
+              <input
+                v-model="detailItineraryForm.startTime"
+                type="time"
+                class="form-input"
+                :class="{ error: detailItineraryErrors.startTime }"
+              />
+              <span v-if="detailItineraryErrors.startTime" class="error-message">{{ detailItineraryErrors.startTime }}</span>
+            </div>
+            <div class="form-col">
+              <label class="form-label">
+                <span class="label-text">结束时间</span>
+                <span class="required">*</span>
+              </label>
+              <input
+                v-model="detailItineraryForm.endTime"
+                type="time"
+                class="form-input"
+                :class="{ error: detailItineraryErrors.endTime }"
+              />
+              <span v-if="detailItineraryErrors.endTime" class="error-message">{{ detailItineraryErrors.endTime }}</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label class="form-label">
+              <span class="label-text">地点</span>
+              <span class="required">*</span>
+            </label>
+            <input
+              v-model="detailItineraryForm.location"
+              type="text"
+              class="form-input"
+              :class="{ error: detailItineraryErrors.location }"
+              placeholder="请输入行程地点"
+            />
+            <span v-if="detailItineraryErrors.location" class="error-message">{{ detailItineraryErrors.location }}</span>
+          </div>
+
+          <div class="form-row">
+            <label class="form-label">
+              <span class="label-text">行程描述</span>
+              <span class="required">*</span>
+            </label>
+            <textarea
+              v-model="detailItineraryForm.description"
+              class="form-textarea"
+              :class="{ error: detailItineraryErrors.description }"
+              placeholder="请输入行程详情"
+              rows="3"
+            ></textarea>
+            <span v-if="detailItineraryErrors.description" class="error-message">{{ detailItineraryErrors.description }}</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="closeDetailItineraryModal">取消</button>
+          <button class="btn btn-primary" @click="submitDetailItinerary">
+            {{ detailItineraryEditingId ? '保存修改' : '确认添加' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -432,6 +560,9 @@ const businessTripStore = useBusinessTripStore()
 const activeTab = ref('all')
 const expandedId = ref(null)
 const showAddItinerary = ref(false)
+const showDetailItineraryModal = ref(false)
+const detailEditingRequestId = ref(null)
+const detailItineraryEditingId = ref(null)
 
 const approvalSteps = APPROVAL_STAGES
 
@@ -471,6 +602,27 @@ const itineraryErrors = reactive({
   endTime: '',
   location: '',
   description: ''
+})
+
+const detailItineraryForm = reactive({
+  date: '',
+  startTime: '',
+  endTime: '',
+  location: '',
+  description: ''
+})
+
+const detailItineraryErrors = reactive({
+  date: '',
+  startTime: '',
+  endTime: '',
+  location: '',
+  description: ''
+})
+
+const detailEditingRequest = computed(() => {
+  if (!detailEditingRequestId.value) return null
+  return myRequests.value.find(r => r.id === detailEditingRequestId.value)
 })
 
 const myRequests = computed(() => {
@@ -624,6 +776,16 @@ function validateItineraryForm() {
   if (!itineraryForm.date) {
     itineraryErrors.date = '请选择行程日期'
     valid = false
+  } else if (formData.startDate && formData.endDate) {
+    const start = new Date(formData.startDate)
+    const end = new Date(formData.endDate)
+    const current = new Date(itineraryForm.date)
+    if (current < start || current > end) {
+      itineraryErrors.date = `行程日期需在 ${formData.startDate} ~ ${formData.endDate} 之间`
+      valid = false
+    } else {
+      itineraryErrors.date = ''
+    }
   } else {
     itineraryErrors.date = ''
   }
@@ -706,6 +868,128 @@ function resetItineraryForm() {
 function cancelRequest(requestId) {
   if (confirm('确定要取消此出差申请吗？')) {
     businessTripStore.cancelTripRequest(requestId)
+  }
+}
+
+function openDetailItineraryModal(requestId) {
+  detailEditingRequestId.value = requestId
+  detailItineraryEditingId.value = null
+  resetDetailItineraryForm()
+  showDetailItineraryModal.value = true
+}
+
+function openDetailEditItineraryModal(requestId, item) {
+  detailEditingRequestId.value = requestId
+  detailItineraryEditingId.value = item.id
+  detailItineraryForm.date = item.date
+  detailItineraryForm.startTime = item.startTime
+  detailItineraryForm.endTime = item.endTime
+  detailItineraryForm.location = item.location
+  detailItineraryForm.description = item.description
+  showDetailItineraryModal.value = true
+}
+
+function closeDetailItineraryModal() {
+  showDetailItineraryModal.value = false
+  detailEditingRequestId.value = null
+  detailItineraryEditingId.value = null
+  resetDetailItineraryForm()
+}
+
+function resetDetailItineraryForm() {
+  detailItineraryForm.date = ''
+  detailItineraryForm.startTime = ''
+  detailItineraryForm.endTime = ''
+  detailItineraryForm.location = ''
+  detailItineraryForm.description = ''
+  detailItineraryErrors.date = ''
+  detailItineraryErrors.startTime = ''
+  detailItineraryErrors.endTime = ''
+  detailItineraryErrors.location = ''
+  detailItineraryErrors.description = ''
+}
+
+function validateDetailItineraryForm() {
+  let valid = true
+
+  if (!detailItineraryForm.date) {
+    detailItineraryErrors.date = '请选择行程日期'
+    valid = false
+  } else if (detailEditingRequest.value) {
+    const start = new Date(detailEditingRequest.value.startDate)
+    const end = new Date(detailEditingRequest.value.endDate)
+    const current = new Date(detailItineraryForm.date)
+    if (current < start || current > end) {
+      detailItineraryErrors.date = `行程日期需在 ${detailEditingRequest.value.startDate} ~ ${detailEditingRequest.value.endDate} 之间`
+      valid = false
+    } else {
+      detailItineraryErrors.date = ''
+    }
+  } else {
+    detailItineraryErrors.date = ''
+  }
+
+  if (!detailItineraryForm.startTime) {
+    detailItineraryErrors.startTime = '请选择开始时间'
+    valid = false
+  } else {
+    detailItineraryErrors.startTime = ''
+  }
+
+  if (!detailItineraryForm.endTime) {
+    detailItineraryErrors.endTime = '请选择结束时间'
+    valid = false
+  } else if (detailItineraryForm.startTime && detailItineraryForm.endTime <= detailItineraryForm.startTime) {
+    detailItineraryErrors.endTime = '结束时间必须晚于开始时间'
+    valid = false
+  } else {
+    detailItineraryErrors.endTime = ''
+  }
+
+  if (!detailItineraryForm.location.trim()) {
+    detailItineraryErrors.location = '请输入行程地点'
+    valid = false
+  } else {
+    detailItineraryErrors.location = ''
+  }
+
+  if (!detailItineraryForm.description.trim()) {
+    detailItineraryErrors.description = '请输入行程描述'
+    valid = false
+  } else {
+    detailItineraryErrors.description = ''
+  }
+
+  return valid
+}
+
+function submitDetailItinerary() {
+  if (!validateDetailItineraryForm() || !detailEditingRequestId.value) return
+
+  if (detailItineraryEditingId.value) {
+    businessTripStore.updateItineraryItem(
+      detailEditingRequestId.value,
+      detailItineraryEditingId.value,
+      { ...detailItineraryForm }
+    )
+    businessTripStore.showToast('行程已更新', 'success')
+  } else {
+    businessTripStore.addItineraryItem(
+      detailEditingRequestId.value,
+      { ...detailItineraryForm }
+    )
+    businessTripStore.showToast('行程已添加', 'success')
+  }
+
+  closeDetailItineraryModal()
+}
+
+function deleteDetailItinerary(requestId, itemId) {
+  if (confirm('确定要删除这条行程吗？')) {
+    const result = businessTripStore.removeItineraryItem(requestId, itemId)
+    if (result) {
+      businessTripStore.showToast('行程已删除', 'success')
+    }
   }
 }
 
@@ -1606,7 +1890,101 @@ onMounted(() => {
   border-top: 1px solid #f0f0f0;
 }
 
+.date-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #999;
+}
+
+.detail-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.detail-section-header .detail-title {
+  margin: 0;
+}
+
+.detail-section-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-link-add {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #667eea;
+  background: #f0f5ff;
+  border: 1px dashed #667eea;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-link-add:active {
+  background: #e6edff;
+}
+
+.detail-empty {
+  padding: 16px;
+}
+
+.detail-itinerary-item {
+  position: relative;
+}
+
+.itinerary-item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.item-action-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.item-action-btn.edit {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.item-action-btn.edit:active {
+  background: #bae7ff;
+}
+
+.item-action-btn.delete {
+  background: #fff1f0;
+  color: #f5222d;
+}
+
+.item-action-btn.delete:active {
+  background: #ffa39e;
+}
+
 @media (min-width: 769px) {
+  .btn-link-add:hover {
+    background: #e6edff;
+  }
+  .item-action-btn.edit:hover {
+    background: #bae7ff;
+  }
+  .item-action-btn.delete:hover {
+    background: #ffa39e;
+  }
+  .itinerary-item-actions {
+    flex-direction: row;
+    gap: 6px;
+  }
   .tab-item:hover {
     color: #667eea;
   }
