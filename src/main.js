@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import pinia from './store'
+import { useOrganizationStore } from './store/organization'
 import { useEmployeeStore } from './store/employee'
 import { useAttendanceStore } from './store/attendance'
 import { useScheduleStore } from './store/schedule'
@@ -14,12 +15,14 @@ const app = createApp(App)
 app.use(pinia)
 app.use(router)
 
+const organizationStore = useOrganizationStore()
 const employeeStore = useEmployeeStore()
 const attendanceStore = useAttendanceStore()
 const scheduleStore = useScheduleStore()
 const vacationStore = useVacationStore()
 const notificationStore = useNotificationStore()
 
+organizationStore.initOrganization()
 employeeStore.initEmployees()
 attendanceStore.initRecords()
 scheduleStore.initSchedule()

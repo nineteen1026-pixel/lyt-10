@@ -17,14 +17,71 @@ export const useEmployeeStore = defineStore('employee', {
       return state.employees.filter(emp => emp.departmentId === departmentId)
     },
 
-    departments: (state) => {
-      const deps = new Map()
-      state.employees.forEach(emp => {
-        if (!deps.has(emp.departmentId)) {
-          deps.set(emp.departmentId, emp.department)
-        }
+    employeesByPosition: (state) => (positionId) => {
+      return state.employees.filter(emp => emp.positionId === positionId)
+    },
+
+    searchEmployees: (state) => (keyword) => {
+      if (!keyword) return state.employees
+      const kw = keyword.toLowerCase()
+      return state.employees.filter(emp =>
+        emp.name.toLowerCase().includes(kw) ||
+        emp.id.toLowerCase().includes(kw) ||
+        emp.position.toLowerCase().includes(kw) ||
+        emp.department.toLowerCase().includes(kw) ||
+        (emp.phone && emp.phone.includes(kw)) ||
+        (emp.email && emp.email.toLowerCase().includes(kw))
+      )
+    },
+
+    filteredEmployees: (state) => ({ departmentId, positionId, status, keyword }) => {
+      let result = [...state.employees]
+      if (departmentId) {
+        result = result.filter(e => e.departmentId === departmentId)
+      }
+      if (positionId) {
+        result = result.filter(e => e.positionId === positionId)
+      }
+      if (status) {
+        result = result.filter(e => e.status === status)
+      }
+      if (keyword) {
+        const kw = keyword.toLowerCase()
+        result = result.filter(emp =>
+          emp.name.toLowerCase().includes(kw) ||
+          emp.id.toLowerCase().includes(kw) ||
+          (emp.phone && emp.phone.includes(kw)) ||
+          (emp.email && emp.email.toLowerCase().includes(kw))
+        )
+      }
+      return result
+    },
+
+    activeEmployees: (state) => {
+      return state.employees.filter(e => e.status === '在职' || e.status === '试用期')
+    },
+
+    employeeStats: (state) => {
+      const stats = {
+        total: state.employees.length,
+        active: 0,
+        byDept: {},
+        byPosition: {}
+      }
+      state.employees.forEach(e => {
+        if (e.status === '在职' || e.status === '试用期') stats.active++
+        stats.byDept[e.departmentId] = (stats.byDept[e.departmentId] || 0) + 1
+        stats.byPosition[e.positionId] = (stats.byPosition[e.positionId] || 0) + 1
       })
-      return Array.from(deps, ([id, name]) => ({ id, name }))
+      return stats
+    },
+
+    nextEmployeeId: (state) => {
+      const maxNum = state.employees.reduce((max, e) => {
+        const num = parseInt(e.id.replace('E', ''), 10)
+        return num > max ? num : max
+      }, 0)
+      return `E${String(maxNum + 1).padStart(3, '0')}`
     }
   },
 
@@ -32,11 +89,10 @@ export const useEmployeeStore = defineStore('employee', {
     initEmployees() {
       const stored = getEmployees()
       if (stored.length === 0) {
-        this.employees = mockEmployees
+        this.employees = JSON.parse(JSON.stringify(mockEmployees))
         this.saveToStorage()
       } else {
-        this.employees = mockEmployees
-        this.saveToStorage()
+        this.employees = stored
       }
 
       const storedUser = getCurrentUser()
@@ -60,6 +116,9 @@ export const useEmployeeStore = defineStore('employee', {
     addEmployee(employee) {
       this.employees.push(employee)
       this.saveToStorage()
+      if (this.currentUser && this.currentUser.id === employee.id) {
+        this.currentUser = employee
+      }
     },
 
     updateEmployee(id, updates) {
@@ -67,12 +126,69 @@ export const useEmployeeStore = defineStore('employee', {
       if (index !== -1) {
         this.employees[index] = { ...this.employees[index], ...updates }
         this.saveToStorage()
+        if (this.currentUser && this.currentUser.id === id) {
+          this.currentUser = this.employees[index]
+          setCurrentUser(this.currentUser)
+        }
       }
     },
 
     removeEmployee(id) {
       this.employees = this.employees.filter(emp => emp.id !== id)
       this.saveToStorage()
+    },
+
+    transferEmployee(employeeId, transferData, organizationStore) {
+      const employee = this.getEmployeeById(employeeId)
+      if (!employee) return null
+
+      const toDept = organizationStore.getDepartmentById(transferData.toDepartmentId)
+      const toPos = organizationStore.getPositionById(transferData.toPositionId)
+
+      const record = {
+        employeeId,
+        employeeName: employee.name,
+        fromDepartmentId: employee.departmentId,
+        fromDepartment: employee.department,
+        fromPositionId: employee.positionId,
+        fromPosition: employee.position,
+        toDepartmentId: transferData.toDepartmentId,
+        toDepartment: toDept ? toDept.name : transferData.toDepartment,
+        toPositionId: transferData.toPositionId,
+        toPosition: toPos ? toPos.name : transferData.toPosition,
+        transferType: transferData.transferType,
+        transferDate: transferData.transferDate,
+        reason: transferData.reason,
+        operatorId: this.currentUser?.id,
+        operatorName: this.currentUser?.name,
+        remark: transferData.remark
+      }
+
+      organizationStore.addTransferRecord(record)
+
+      this.updateEmployee(employeeId, {
+        departmentId: transferData.toDepartmentId,
+        department: toDept ? toDept.name : transferData.toDepartment,
+        positionId: transferData.toPositionId,
+        position: toPos ? toPos.name : transferData.toPosition
+      })
+
+      return record
+    },
+
+    updateDepartmentForAll(oldDeptId, newDeptId, newDeptName) {
+      this.employees.forEach(emp => {
+        if (emp.departmentId === oldDeptId) {
+          emp.departmentId = newDeptId
+          emp.department = newDeptName
+        }
+      })
+      this.saveToStorage()
+      if (this.currentUser && this.currentUser.departmentId === oldDeptId) {
+        this.currentUser.departmentId = newDeptId
+        this.currentUser.department = newDeptName
+        setCurrentUser(this.currentUser)
+      }
     }
   }
 })

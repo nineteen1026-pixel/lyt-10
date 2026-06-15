@@ -123,6 +123,36 @@ const routes = [
       title: '消息中心',
       icon: '🔔'
     }
+  },
+  {
+    path: '/org-structure',
+    name: 'OrgStructure',
+    component: () => import('@/views/OrgStructure.vue'),
+    meta: {
+      title: '组织架构',
+      icon: '🏢',
+      requiresAdmin: true
+    }
+  },
+  {
+    path: '/position-manage',
+    name: 'PositionManage',
+    component: () => import('@/views/PositionManage.vue'),
+    meta: {
+      title: '岗位职级',
+      icon: '💼',
+      requiresAdmin: true
+    }
+  },
+  {
+    path: '/employee-admin',
+    name: 'EmployeeAdmin',
+    component: () => import('@/views/EmployeeAdmin.vue'),
+    meta: {
+      title: '员工档案',
+      icon: '👥',
+      requiresAdmin: true
+    }
   }
 ]
 

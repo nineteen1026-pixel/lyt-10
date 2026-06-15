@@ -13,7 +13,10 @@ const STORAGE_KEYS = {
   VACATION_GRANTS: 'vacation_grants',
   VACATION_ADJUSTMENTS: 'vacation_adjustments',
   NOTIFICATIONS: 'attendance_notifications',
-  NOTIFICATION_READ_STATUS: 'notification_read_status'
+  NOTIFICATION_READ_STATUS: 'notification_read_status',
+  DEPARTMENTS_TREE: 'org_departments_tree',
+  POSITIONS: 'org_positions',
+  TRANSFER_RECORDS: 'org_transfer_records'
 }
 
 export function getStorage(key, defaultValue = null) {
@@ -168,6 +171,30 @@ export function getBusinessTripCheckins() {
 
 export function setBusinessTripCheckins(checkins) {
   return setStorage(STORAGE_KEYS.BUSINESS_TRIP_CHECKINS, checkins)
+}
+
+export function getDepartmentsTree() {
+  return getStorage(STORAGE_KEYS.DEPARTMENTS_TREE, [])
+}
+
+export function setDepartmentsTree(departments) {
+  return setStorage(STORAGE_KEYS.DEPARTMENTS_TREE, departments)
+}
+
+export function getPositions() {
+  return getStorage(STORAGE_KEYS.POSITIONS, [])
+}
+
+export function setPositions(positions) {
+  return setStorage(STORAGE_KEYS.POSITIONS, positions)
+}
+
+export function getTransferRecords() {
+  return getStorage(STORAGE_KEYS.TRANSFER_RECORDS, [])
+}
+
+export function setTransferRecords(records) {
+  return setStorage(STORAGE_KEYS.TRANSFER_RECORDS, records)
 }
 
 export { STORAGE_KEYS }
