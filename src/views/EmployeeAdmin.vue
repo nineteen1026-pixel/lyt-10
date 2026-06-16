@@ -584,7 +584,13 @@ const transferForm = reactive({
 const flatDepartments = computed(() => organizationStore.flatDepartments)
 const sortedPositions = computed(() => organizationStore.sortedPositions)
 const employeeStats = computed(() => employeeStore.employeeStats)
-const orgDeptCount = computed(() => organizationStore.flatDepartments.length)
+const orgDeptCount = computed(() => {
+  const deptIds = new Set()
+  employeeStore.employees.forEach(emp => {
+    if (emp.departmentId) deptIds.add(emp.departmentId)
+  })
+  return deptIds.size
+})
 const transferCount = computed(() => organizationStore.transferRecords.length)
 
 const filteredEmployees = computed(() => {
