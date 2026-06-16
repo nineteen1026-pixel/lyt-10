@@ -62,18 +62,30 @@ export const useOrganizationStore = defineStore('organization', {
 
     getAllDescendantIds: (state) => (departmentId) => {
       const ids = []
-      function collect(nodes, parentId) {
+      function findNode(nodes, targetId) {
         for (const node of nodes) {
-          if (node.parentId === parentId) {
-            ids.push(node.id)
-            collect(state.departmentsTree, node.id)
+          if (node.id === targetId) {
+            return node
           }
-          if (node.children) {
-            collect(node.children, parentId)
+          if (node.children && node.children.length > 0) {
+            const found = findNode(node.children, targetId)
+            if (found) return found
+          }
+        }
+        return null
+      }
+      function collectChildren(node) {
+        if (node.children && node.children.length > 0) {
+          for (const child of node.children) {
+            ids.push(child.id)
+            collectChildren(child)
           }
         }
       }
-      collect(state.departmentsTree, departmentId)
+      const targetNode = findNode(state.departmentsTree, departmentId)
+      if (targetNode) {
+        collectChildren(targetNode)
+      }
       return ids
     },
 

@@ -250,8 +250,8 @@
           </div>
           <div class="modal-body">
             <p>确定要删除部门「<strong>{{ deleteTarget?.name }}</strong>」吗？</p>
-            <p v-if="deleteTarget?.children?.length" class="warning-text">
-              ⚠️ 该部门下还有 {{ deleteTarget.children.length }} 个子部门，将一并删除！
+            <p v-if="childCountForDelete > 0" class="warning-text">
+              ⚠️ 该部门下还有 {{ childCountForDelete }} 个子部门，将一并删除！
             </p>
             <p v-if="getDeptEmployeeCount(deleteTarget?.id) > 0" class="warning-text">
               ⚠️ 该部门下还有 {{ getDeptEmployeeCount(deleteTarget?.id) }} 名员工，删除后员工部门将被清空！
@@ -340,8 +340,12 @@ const childDepartments = computed(() => {
 })
 
 const childCount = computed(() => {
-  if (!selectedDept?.children) return 0
-  return selectedDept.children.length
+  return childDepartments.value.length
+})
+
+const childCountForDelete = computed(() => {
+  if (!deleteTarget.value?.id) return 0
+  return organizationStore.getAllDescendantIds(deleteTarget.value.id).length
 })
 
 function getDeptEmployeeCount(deptId) {
