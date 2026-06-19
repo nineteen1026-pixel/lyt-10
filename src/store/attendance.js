@@ -470,18 +470,27 @@ export const useAttendanceStore = defineStore('attendance', {
       for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         const dateStr = formatDate(d, 'YYYY-MM-DD')
         const dayOfWeek = d.getDay()
-        if (dayOfWeek === 0 || dayOfWeek === 6) continue
 
-        let isRestDay = false
+        let skip = false
+        let hasSchedule = false
+
         if (scheduleStore) {
           const year = d.getFullYear()
           const month = d.getMonth() + 1
           const empSchedule = scheduleStore.getEmployeeMonthSchedule(request.employeeId, year, month)
-          if (empSchedule && empSchedule[dateStr] === 'rest') {
-            isRestDay = true
+          if (empSchedule && empSchedule[dateStr]) {
+            hasSchedule = true
+            if (empSchedule[dateStr] === 'rest') {
+              skip = true
+            }
           }
         }
-        if (isRestDay) continue
+
+        if (!hasSchedule && (dayOfWeek === 0 || dayOfWeek === 6)) {
+          skip = true
+        }
+
+        if (skip) continue
 
         if (!this.records[request.employeeId][dateStr]) {
           this.records[request.employeeId][dateStr] = {}
@@ -524,8 +533,6 @@ export const useAttendanceStore = defineStore('attendance', {
         const endDate = new Date(request.endDate)
         for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
           const dateStr = formatDate(d, 'YYYY-MM-DD')
-          const dayOfWeek = d.getDay()
-          if (dayOfWeek === 0 || dayOfWeek === 6) continue
 
           if (this.records[request.employeeId] && this.records[request.employeeId][dateStr]) {
             if (this.records[request.employeeId][dateStr].leaveRequestId === request.id) {
