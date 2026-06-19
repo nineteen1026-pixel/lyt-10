@@ -749,15 +749,30 @@ export const useAttendanceStore = defineStore('attendance', {
       const isAlreadyGranted = result.message && result.message.includes('重复')
       if (isAlreadyGranted) {
         const existingGrant = vacationStore.grants.find(g =>
-          g.sourceOvertimeRequestId === request.id ||
-          g.reason === 'overtime_convert'
+          g.sourceOvertimeRequestId === request.id
         )
-        const actualDays = existingGrant ? existingGrant.totalDays : lieuDays
-        request.lieuGrantId = existingGrant ? existingGrant.id : null
-        request.lieuDays = actualDays
+        if (existingGrant) {
+          request.lieuGrantId = existingGrant.id
+          request.lieuDays = existingGrant.totalDays
+          request.lieuConvertStatus = 'success'
+          request.lieuConvertMessage = `调休 ${existingGrant.totalDays} 天已入账`
+          return { success: true, lieuDays: existingGrant.totalDays, grantId: existingGrant.id, alreadyGranted: true }
+        }
+        const existingAdj = vacationStore.adjustments.find(a =>
+          a.relatedOvertimeRequestId === request.id &&
+          a.reason === 'overtime_convert' &&
+          a.changeType === 'add'
+        )
+        if (existingAdj) {
+          request.lieuDays = existingAdj.days
+          request.lieuConvertStatus = 'success'
+          request.lieuConvertMessage = `调休 ${existingAdj.days} 天已入账`
+          return { success: true, lieuDays: existingAdj.days, alreadyGranted: true }
+        }
+        request.lieuDays = lieuDays
         request.lieuConvertStatus = 'success'
-        request.lieuConvertMessage = `调休 ${actualDays} 天已入账`
-        return { success: true, lieuDays: actualDays, grantId: existingGrant?.id, alreadyGranted: true }
+        request.lieuConvertMessage = `调休 ${lieuDays} 天已入账`
+        return { success: true, lieuDays, alreadyGranted: true }
       }
 
       request.lieuConvertStatus = 'failed'
@@ -769,6 +784,53 @@ export const useAttendanceStore = defineStore('attendance', {
         message: result.message || '调休额度生成失败',
         lieuDays: 0
       }
+    },
+
+    backfillLieuStatus(request) {
+      if (!request || !isOvertimeFinalApproved(request.status)) return null
+      if (request.lieuConvertStatus) return null
+
+      const vacationStore = useVacationStore()
+
+      const matchedGrant = vacationStore.grants.find(g =>
+        g.sourceOvertimeRequestId === request.id
+      )
+      if (matchedGrant) {
+        request.lieuGrantId = matchedGrant.id
+        request.lieuDays = matchedGrant.totalDays
+        request.lieuConvertStatus = 'success'
+        request.lieuConvertMessage = `调休 ${matchedGrant.totalDays} 天已入账`
+        this.saveOvertimeRequestsToStorage()
+        return { status: 'success', lieuDays: matchedGrant.totalDays }
+      }
+
+      const matchedAdj = vacationStore.adjustments.find(a =>
+        a.relatedOvertimeRequestId === request.id &&
+        a.reason === 'overtime_convert' &&
+        a.changeType === 'add'
+      )
+      if (matchedAdj) {
+        request.lieuDays = matchedAdj.days
+        request.lieuConvertStatus = 'success'
+        request.lieuConvertMessage = `调休 ${matchedAdj.days} 天已入账`
+        this.saveOvertimeRequestsToStorage()
+        return { status: 'success', lieuDays: matchedAdj.days }
+      }
+
+      const expectedDays = calculateLieuDays(request.startTime, request.endTime, request.overtimeType)
+      if (expectedDays <= 0) {
+        request.lieuDays = 0
+        request.lieuConvertStatus = 'zero_days'
+        request.lieuConvertMessage = '工时不足，未生成调休额度'
+        this.saveOvertimeRequestsToStorage()
+        return { status: 'zero_days', lieuDays: 0 }
+      }
+
+      request.lieuDays = 0
+      request.lieuConvertStatus = 'zero_days'
+      request.lieuConvertMessage = '未生成调休'
+      this.saveOvertimeRequestsToStorage()
+      return { status: 'zero_days', lieuDays: 0 }
     }
   }
 })

@@ -315,7 +315,6 @@ import { ref, computed, reactive, onMounted, onUpdated, watch, nextTick } from '
 import { useRoute, useRouter } from 'vue-router'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
-import { useVacationStore } from '@/store/vacation'
 import { 
   OVERTIME_TYPES, 
   APPROVAL_STAGES, 
@@ -338,7 +337,6 @@ const route = useRoute()
 const router = useRouter()
 const employeeStore = useEmployeeStore()
 const attendanceStore = useAttendanceStore()
-const vacationStore = useVacationStore()
 
 const activeTab = ref('all')
 const highlightedId = ref('')
@@ -702,7 +700,7 @@ function resolveLieuStatus(request) {
     return { cssClass: 'success', text: request.lieuDays + ' 天已入账' }
   }
   if (request.lieuConvertStatus === 'zero_days') {
-    return { cssClass: 'zero', text: '工时不足，未生成' }
+    return { cssClass: 'zero', text: request.lieuConvertMessage || '工时不足，未生成' }
   }
   if (request.lieuConvertStatus === 'failed') {
     return { cssClass: 'failed', text: request.lieuConvertMessage || '生成失败' }
@@ -712,28 +710,16 @@ function resolveLieuStatus(request) {
     return { cssClass: 'success', text: request.lieuDays + ' 天已入账' }
   }
 
-  const matchedGrant = vacationStore.grants.find(g =>
-    g.sourceOvertimeRequestId === request.id
-  )
-  if (matchedGrant) {
-    request.lieuDays = matchedGrant.totalDays
-    request.lieuGrantId = matchedGrant.id
-    return { cssClass: 'success', text: matchedGrant.totalDays + ' 天已入账' }
-  }
+  attendanceStore.backfillLieuStatus(request)
 
-  const matchedAdj = vacationStore.adjustments.find(a =>
-    a.relatedOvertimeRequestId === request.id &&
-    a.reason === 'overtime_convert' &&
-    a.changeType === 'add'
-  )
-  if (matchedAdj) {
-    request.lieuDays = matchedAdj.days
-    return { cssClass: 'success', text: matchedAdj.days + ' 天已入账' }
+  if (request.lieuConvertStatus === 'success') {
+    return { cssClass: 'success', text: request.lieuDays + ' 天已入账' }
   }
-
-  const expectedDays = calculateLieuDays(request.startTime, request.endTime, request.overtimeType)
-  if (expectedDays <= 0) {
-    return { cssClass: 'zero', text: '工时不足，未生成' }
+  if (request.lieuConvertStatus === 'zero_days') {
+    return { cssClass: 'zero', text: request.lieuConvertMessage || '未生成调休' }
+  }
+  if (request.lieuConvertStatus === 'failed') {
+    return { cssClass: 'failed', text: request.lieuConvertMessage || '生成失败' }
   }
 
   return { cssClass: 'zero', text: '未生成调休' }
