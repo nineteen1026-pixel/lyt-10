@@ -769,10 +769,15 @@ export const useAttendanceStore = defineStore('attendance', {
           request.lieuConvertMessage = `调休 ${existingAdj.days} 天已入账`
           return { success: true, lieuDays: existingAdj.days, alreadyGranted: true }
         }
-        request.lieuDays = lieuDays
-        request.lieuConvertStatus = 'success'
-        request.lieuConvertMessage = `调休 ${lieuDays} 天已入账`
-        return { success: true, lieuDays, alreadyGranted: true }
+        request.lieuConvertStatus = 'failed'
+        request.lieuConvertMessage = '假期账户无对应入账记录，请联系人事核实'
+        request.lieuDays = 0
+        return {
+          success: false,
+          reason: 'missing_record',
+          message: '假期账户无对应入账记录，请联系人事核实',
+          lieuDays: 0
+        }
       }
 
       request.lieuConvertStatus = 'failed'
@@ -788,7 +793,24 @@ export const useAttendanceStore = defineStore('attendance', {
 
     backfillLieuStatus(request) {
       if (!request || !isOvertimeFinalApproved(request.status)) return null
-      if (request.lieuConvertStatus) return null
+
+      if (
+        request.lieuConvertStatus === 'success' ||
+        request.lieuConvertStatus === 'zero_days'
+      ) {
+        return null
+      }
+
+      const expectedDays = calculateLieuDays(request.startTime, request.endTime, request.overtimeType)
+      if (expectedDays <= 0) {
+        if (request.lieuConvertStatus !== 'zero_days') {
+          request.lieuDays = 0
+          request.lieuConvertStatus = 'zero_days'
+          request.lieuConvertMessage = '工时不足，未生成调休额度'
+          this.saveOvertimeRequestsToStorage()
+        }
+        return { status: 'zero_days', lieuDays: 0 }
+      }
 
       const vacationStore = useVacationStore()
 
@@ -817,20 +839,7 @@ export const useAttendanceStore = defineStore('attendance', {
         return { status: 'success', lieuDays: matchedAdj.days }
       }
 
-      const expectedDays = calculateLieuDays(request.startTime, request.endTime, request.overtimeType)
-      if (expectedDays <= 0) {
-        request.lieuDays = 0
-        request.lieuConvertStatus = 'zero_days'
-        request.lieuConvertMessage = '工时不足，未生成调休额度'
-        this.saveOvertimeRequestsToStorage()
-        return { status: 'zero_days', lieuDays: 0 }
-      }
-
-      request.lieuDays = 0
-      request.lieuConvertStatus = 'zero_days'
-      request.lieuConvertMessage = '未生成调休'
-      this.saveOvertimeRequestsToStorage()
-      return { status: 'zero_days', lieuDays: 0 }
+      return { status: 'pending', lieuDays: 0 }
     }
   }
 })

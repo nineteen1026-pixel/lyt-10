@@ -710,7 +710,7 @@ function resolveLieuStatus(request) {
     return { cssClass: 'success', text: request.lieuDays + ' 天已入账' }
   }
 
-  attendanceStore.backfillLieuStatus(request)
+  const backfillResult = attendanceStore.backfillLieuStatus(request)
 
   if (request.lieuConvertStatus === 'success') {
     return { cssClass: 'success', text: request.lieuDays + ' 天已入账' }
@@ -722,7 +722,11 @@ function resolveLieuStatus(request) {
     return { cssClass: 'failed', text: request.lieuConvertMessage || '生成失败' }
   }
 
-  return { cssClass: 'zero', text: '未生成调休' }
+  if (backfillResult && backfillResult.status === 'pending') {
+    return { cssClass: 'pending', text: '待确认' }
+  }
+
+  return { cssClass: 'pending', text: '待确认' }
 }
 
 function getLieuConvertStatus(request) {
