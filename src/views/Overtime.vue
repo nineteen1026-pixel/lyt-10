@@ -702,9 +702,6 @@ function resolveLieuStatus(request) {
   if (request.lieuConvertStatus === 'zero_days') {
     return { cssClass: 'zero', text: request.lieuConvertMessage || '工时不足，未生成' }
   }
-  if (request.lieuConvertStatus === 'failed') {
-    return { cssClass: 'failed', text: request.lieuConvertMessage || '生成失败' }
-  }
 
   if (request.lieuDays && request.lieuDays > 0) {
     return { cssClass: 'success', text: request.lieuDays + ' 天已入账' }
