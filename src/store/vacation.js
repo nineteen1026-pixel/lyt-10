@@ -277,6 +277,16 @@ export const useVacationStore = defineStore('vacation', {
     },
 
     consumeDays(employeeId, vacationType, days, leaveRequestId) {
+      if (leaveRequestId) {
+        const alreadyConsumed = this.adjustments.find(a => 
+          a.relatedLeaveRequestId === leaveRequestId && 
+          a.reason === 'leave_approved'
+        )
+        if (alreadyConsumed) {
+          return { success: false, message: '该请假申请已扣减过假期，请勿重复操作' }
+        }
+      }
+
       const validGrants = this.getEmployeeGrants(employeeId, vacationType, false)
       const balance = this.getEmployeeBalance(employeeId, vacationType)
       

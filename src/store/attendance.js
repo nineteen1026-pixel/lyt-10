@@ -4,6 +4,7 @@ import { getToday, getCurrentTime, getNow, formatDate, parseTime } from '@/utils
 import { getCheckInStatus, getCheckOutStatus, getDayStatus, generateMonthCalendarData, calculateAttendanceStats, ATTENDANCE_STATUS, LEAVE_TYPES, getLeaveTypeLabel, OVERTIME_STATUS, OVERTIME_TYPES, getOvertimeStatusText, getOvertimeTypeLabel, isOvertimeFinalApproved, isOvertimeRejected, calculateOvertimeHours, getCheckInStatusWithShift, getCheckOutStatusWithShift, getDayStatusWithShift, calculateAttendanceStatsWithShift } from '@/utils/attendance'
 import { VACATION_TYPES } from '@/utils/vacation'
 import { useVacationStore } from '@/store/vacation'
+import { useScheduleStore } from '@/store/schedule'
 
 function generateMockRecords() {
   const records = {}
@@ -424,57 +425,87 @@ export const useAttendanceStore = defineStore('attendance', {
 
     approveLeaveRequest(requestId) {
       const request = this.leaveRequests.find(r => r.id === requestId)
-      if (request) {
-        if (['annual', 'lieu'].includes(request.leaveType)) {
-          const vacationStore = useVacationStore()
-          const vacationType = request.leaveType === 'annual' ? VACATION_TYPES.ANNUAL : VACATION_TYPES.LIEU
-          const result = vacationStore.consumeDays(
-            request.employeeId,
-            vacationType,
-            request.days,
-            request.id
-          )
-          
-          if (!result.success) {
-            this.showToast(result.message, 'error')
-            return
-          }
+      if (!request) return
 
-          request.vacationConsumed = result.consumedGrants
-        }
-
-        request.status = 'approved'
-        request.reviewedAt = getNow()
-
-        if (!this.records[request.employeeId]) {
-          this.records[request.employeeId] = {}
-        }
-
-        const startDate = new Date(request.startDate)
-        const endDate = new Date(request.endDate)
-
-        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-          const dateStr = formatDate(d, 'YYYY-MM-DD')
-          const dayOfWeek = d.getDay()
-          if (dayOfWeek === 0 || dayOfWeek === 6) continue
-
-          if (!this.records[request.employeeId][dateStr]) {
-            this.records[request.employeeId][dateStr] = {}
-          }
-          this.records[request.employeeId][dateStr].isLeave = true
-          this.records[request.employeeId][dateStr].leaveType = request.leaveType
-          this.records[request.employeeId][dateStr].leaveRequestId = request.id
-        }
-
-        this.saveRecordsToStorage()
-        this.saveLeaveRequestsToStorage()
-        this.showToast('请假申请已通过', 'success')
+      if (request.status !== 'pending') {
+        this.showToast('该请假申请已处理，请勿重复操作', 'warning')
+        return
       }
+
+      if (['annual', 'lieu'].includes(request.leaveType)) {
+        const vacationStore = useVacationStore()
+        const vacationType = request.leaveType === 'annual' ? VACATION_TYPES.ANNUAL : VACATION_TYPES.LIEU
+        const result = vacationStore.consumeDays(
+          request.employeeId,
+          vacationType,
+          request.days,
+          request.id
+        )
+        
+        if (!result.success) {
+          this.showToast(result.message, 'error')
+          return
+        }
+
+        request.vacationConsumed = result.consumedGrants
+      }
+
+      request.status = 'approved'
+      request.reviewedAt = getNow()
+
+      if (!this.records[request.employeeId]) {
+        this.records[request.employeeId] = {}
+      }
+
+      const startDate = new Date(request.startDate)
+      const endDate = new Date(request.endDate)
+
+      let scheduleStore
+      try {
+        scheduleStore = useScheduleStore()
+      } catch (e) {
+        scheduleStore = null
+      }
+
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = formatDate(d, 'YYYY-MM-DD')
+        const dayOfWeek = d.getDay()
+        if (dayOfWeek === 0 || dayOfWeek === 6) continue
+
+        let isRestDay = false
+        if (scheduleStore) {
+          const year = d.getFullYear()
+          const month = d.getMonth() + 1
+          const empSchedule = scheduleStore.getEmployeeMonthSchedule(request.employeeId, year, month)
+          if (empSchedule && empSchedule[dateStr] === 'rest') {
+            isRestDay = true
+          }
+        }
+        if (isRestDay) continue
+
+        if (!this.records[request.employeeId][dateStr]) {
+          this.records[request.employeeId][dateStr] = {}
+        }
+        this.records[request.employeeId][dateStr].isLeave = true
+        this.records[request.employeeId][dateStr].leaveType = request.leaveType
+        this.records[request.employeeId][dateStr].leaveRequestId = request.id
+      }
+
+      this.saveRecordsToStorage()
+      this.saveLeaveRequestsToStorage()
+      this.showToast('请假申请已通过', 'success')
     },
 
     rejectLeaveRequest(requestId) {
       const request = this.leaveRequests.find(r => r.id === requestId)
-      if (request) {
+      if (!request) return
+
+      if (request.status === 'rejected') {
+        this.showToast('该请假申请已拒绝，请勿重复操作', 'warning')
+        return
+      }
+
+      if (request.status === 'approved') {
         if (['annual', 'lieu'].includes(request.leaveType) && request.vacationConsumed && request.vacationConsumed.length > 0) {
           const vacationStore = useVacationStore()
           const vacationType = request.leaveType === 'annual' ? VACATION_TYPES.ANNUAL : VACATION_TYPES.LIEU
@@ -489,12 +520,55 @@ export const useAttendanceStore = defineStore('attendance', {
           request.vacationConsumed = []
         }
 
+        const startDate = new Date(request.startDate)
+        const endDate = new Date(request.endDate)
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+          const dateStr = formatDate(d, 'YYYY-MM-DD')
+          const dayOfWeek = d.getDay()
+          if (dayOfWeek === 0 || dayOfWeek === 6) continue
+
+          if (this.records[request.employeeId] && this.records[request.employeeId][dateStr]) {
+            if (this.records[request.employeeId][dateStr].leaveRequestId === request.id) {
+              delete this.records[request.employeeId][dateStr].isLeave
+              delete this.records[request.employeeId][dateStr].leaveType
+              delete this.records[request.employeeId][dateStr].leaveRequestId
+            }
+          }
+        }
+
         request.status = 'rejected'
         request.reviewedAt = getNow()
 
+        this.saveRecordsToStorage()
         this.saveLeaveRequestsToStorage()
-        this.showToast('请假申请已拒绝', 'warning')
+        this.showToast('请假申请已撤销，已返还假期余额', 'warning')
+        return
       }
+
+      if (request.status !== 'pending') {
+        this.showToast('该请假申请状态不支持拒绝操作', 'warning')
+        return
+      }
+
+      if (['annual', 'lieu'].includes(request.leaveType) && request.vacationConsumed && request.vacationConsumed.length > 0) {
+        const vacationStore = useVacationStore()
+        const vacationType = request.leaveType === 'annual' ? VACATION_TYPES.ANNUAL : VACATION_TYPES.LIEU
+        vacationStore.returnDays(
+          request.employeeId,
+          vacationType,
+          request.days,
+          request.id,
+          'system',
+          request.vacationConsumed
+        )
+        request.vacationConsumed = []
+      }
+
+      request.status = 'rejected'
+      request.reviewedAt = getNow()
+
+      this.saveLeaveRequestsToStorage()
+      this.showToast('请假申请已拒绝', 'warning')
     },
 
     submitOvertimeRequest(data) {
