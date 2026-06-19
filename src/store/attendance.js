@@ -651,8 +651,6 @@ export const useAttendanceStore = defineStore('attendance', {
           } else if (lieuResult.reason === 'zero_days') {
             toastMessage = `加班申请已通过，但工时不足未生成调休额度`
             toastType = 'warning'
-          } else if (lieuResult.reason === 'already_granted') {
-            toastMessage = `加班申请已通过（调休已入账，请勿重复操作）`
           } else {
             toastMessage = `加班申请已通过，但调休额度生成失败：${lieuResult.message || '未知原因'}`
             toastType = 'warning'
@@ -746,16 +744,30 @@ export const useAttendanceStore = defineStore('attendance', {
         request.lieuConvertStatus = 'success'
         request.lieuConvertMessage = `调休 ${lieuDays} 天已入账`
         return { success: true, lieuDays, grantId: result.grant.id }
-      } else {
-        request.lieuConvertStatus = 'failed'
-        request.lieuConvertMessage = result.message || '调休额度生成失败'
-        request.lieuDays = 0
-        return { 
-          success: false, 
-          reason: result.message?.includes('重复') ? 'already_granted' : 'failed', 
-          message: result.message || '调休额度生成失败',
-          lieuDays: 0
-        }
+      }
+
+      const isAlreadyGranted = result.message && result.message.includes('重复')
+      if (isAlreadyGranted) {
+        const existingGrant = vacationStore.grants.find(g =>
+          g.sourceOvertimeRequestId === request.id ||
+          g.reason === 'overtime_convert'
+        )
+        const actualDays = existingGrant ? existingGrant.totalDays : lieuDays
+        request.lieuGrantId = existingGrant ? existingGrant.id : null
+        request.lieuDays = actualDays
+        request.lieuConvertStatus = 'success'
+        request.lieuConvertMessage = `调休 ${actualDays} 天已入账`
+        return { success: true, lieuDays: actualDays, grantId: existingGrant?.id, alreadyGranted: true }
+      }
+
+      request.lieuConvertStatus = 'failed'
+      request.lieuConvertMessage = result.message || '调休额度生成失败'
+      request.lieuDays = 0
+      return {
+        success: false,
+        reason: 'failed',
+        message: result.message || '调休额度生成失败',
+        lieuDays: 0
       }
     }
   }
