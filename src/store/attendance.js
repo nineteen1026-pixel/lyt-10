@@ -630,7 +630,7 @@ export const useAttendanceStore = defineStore('attendance', {
         },
         [OVERTIME_STATUS.PENDING_HR]: {
           next: OVERTIME_STATUS.APPROVED,
-          message: '加班申请已通过，工时已同步，调休额度已生成'
+          message: '加班申请已通过'
         }
       }
 
@@ -639,13 +639,28 @@ export const useAttendanceStore = defineStore('attendance', {
         request.status = flow.next
         request.reviewedAt = getNow()
 
+        let toastMessage = flow.message
+        let toastType = 'success'
+
         if (flow.next === OVERTIME_STATUS.APPROVED) {
           this.syncOvertimeToAttendance(request)
-          this.convertOvertimeToLieu(request)
+          const lieuResult = this.convertOvertimeToLieu(request)
+
+          if (lieuResult.success) {
+            toastMessage = `加班申请已通过，调休 ${lieuResult.lieuDays} 天已入账`
+          } else if (lieuResult.reason === 'zero_days') {
+            toastMessage = `加班申请已通过，但工时不足未生成调休额度`
+            toastType = 'warning'
+          } else if (lieuResult.reason === 'already_granted') {
+            toastMessage = `加班申请已通过（调休已入账，请勿重复操作）`
+          } else {
+            toastMessage = `加班申请已通过，但调休额度生成失败：${lieuResult.message || '未知原因'}`
+            toastType = 'warning'
+          }
         }
 
         this.saveOvertimeRequestsToStorage()
-        this.showToast(flow.message, 'success')
+        this.showToast(toastMessage, toastType)
       }
     },
 
@@ -700,10 +715,17 @@ export const useAttendanceStore = defineStore('attendance', {
     },
 
     convertOvertimeToLieu(request) {
-      if (!isOvertimeFinalApproved(request.status)) return
+      if (!isOvertimeFinalApproved(request.status)) {
+        return { success: false, reason: 'not_approved', message: '加班申请未通过' }
+      }
 
       const lieuDays = calculateLieuDays(request.startTime, request.endTime, request.overtimeType)
-      if (lieuDays <= 0) return
+      if (lieuDays <= 0) {
+        request.lieuConvertStatus = 'zero_days'
+        request.lieuConvertMessage = '工时不足，未生成调休额度'
+        request.lieuDays = 0
+        return { success: false, reason: 'zero_days', message: '工时不足，未生成调休额度', lieuDays: 0 }
+      }
 
       const vacationStore = useVacationStore()
       const result = vacationStore.grantLieuFromOvertime({
@@ -721,6 +743,19 @@ export const useAttendanceStore = defineStore('attendance', {
       if (result.success && result.grant) {
         request.lieuGrantId = result.grant.id
         request.lieuDays = lieuDays
+        request.lieuConvertStatus = 'success'
+        request.lieuConvertMessage = `调休 ${lieuDays} 天已入账`
+        return { success: true, lieuDays, grantId: result.grant.id }
+      } else {
+        request.lieuConvertStatus = 'failed'
+        request.lieuConvertMessage = result.message || '调休额度生成失败'
+        request.lieuDays = 0
+        return { 
+          success: false, 
+          reason: result.message?.includes('重复') ? 'already_granted' : 'failed', 
+          message: result.message || '调休额度生成失败',
+          lieuDays: 0
+        }
       }
     }
   }

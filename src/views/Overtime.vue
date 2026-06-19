@@ -262,9 +262,9 @@
               <span class="hours-label">计薪工时</span>
               <span class="hours-value">{{ request.overtimeHours }} 小时</span>
             </div>
-            <div v-if="isOvertimeFinalApproved(request.status) && request.lieuDays" class="lieu-info">
-              <span class="lieu-label">转换调休</span>
-              <span class="lieu-value">{{ request.lieuDays }} 天</span>
+            <div v-if="isOvertimeFinalApproved(request.status)" class="lieu-info" :class="getLieuConvertStatus(request)">
+              <span class="lieu-label">调休转换</span>
+              <span class="lieu-value">{{ getLieuConvertText(request) }}</span>
             </div>
           </div>
 
@@ -691,6 +691,32 @@ function rejectRequest(request) {
   
   const approverName = currentUser.value ? currentUser.value.name : getApproverRoleName(role)
   attendanceStore.rejectOvertimeRequest(request.id, role, approverName)
+}
+
+function getLieuConvertStatus(request) {
+  if (!isOvertimeFinalApproved(request.status)) return ''
+  if (request.lieuConvertStatus === 'success') return 'success'
+  if (request.lieuConvertStatus === 'zero_days') return 'zero'
+  if (request.lieuConvertStatus === 'failed') return 'failed'
+  if (request.lieuDays && request.lieuDays > 0) return 'success'
+  return 'zero'
+}
+
+function getLieuConvertText(request) {
+  if (!isOvertimeFinalApproved(request.status)) return ''
+  if (request.lieuConvertStatus === 'success' || (request.lieuDays && request.lieuDays > 0)) {
+    return request.lieuDays + ' 天已入账'
+  }
+  if (request.lieuConvertStatus === 'zero_days') {
+    return '工时不足，未生成'
+  }
+  if (request.lieuConvertStatus === 'failed') {
+    return request.lieuConvertMessage || '生成失败'
+  }
+  if (request.lieuDays && request.lieuDays > 0) {
+    return request.lieuDays + ' 天已入账'
+  }
+  return '未生成调休'
 }
 </script>
 
@@ -1455,6 +1481,28 @@ function rejectRequest(request) {
   font-size: 16px;
   font-weight: 700;
   color: #1890ff;
+}
+
+.lieu-info.success .lieu-value {
+  color: #52c41a;
+}
+
+.lieu-info.zero .lieu-value {
+  color: #999;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.lieu-info.failed .lieu-value {
+  color: #f5222d;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.lieu-info.pending .lieu-value {
+  color: #faad14;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .request-reason {
