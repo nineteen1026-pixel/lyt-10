@@ -11,7 +11,8 @@ import {
   getExpirationStatus,
   getDaysUntilExpire,
   generateVacationGrantId,
-  generateAdjustmentRecordId
+  generateAdjustmentRecordId,
+  getAdjustmentReasonLabel
 } from '@/utils/vacation'
 import { useAttendanceStore } from '@/store/attendance'
 
@@ -244,6 +245,62 @@ export const useVacationStore = defineStore('vacation', {
       return grant
     },
 
+    grantLieuFromOvertime(data) {
+      if (data.overtimeRequestId) {
+        const alreadyGranted = this.adjustments.find(a =>
+          a.relatedOvertimeRequestId === data.overtimeRequestId &&
+          a.reason === 'overtime_convert'
+        )
+        if (alreadyGranted) {
+          return { success: false, message: '该加班申请已转换过调休，请勿重复操作', grant: null }
+        }
+      }
+
+      const grantDate = formatDate(new Date(), 'YYYY-MM-DD')
+      const expireDate = getLieuExpireDate(grantDate)
+      const overtimeTypeLabel = data.overtimeTypeLabel || data.overtimeType || '加班'
+
+      const grant = {
+        id: generateVacationGrantId(),
+        employeeId: data.employeeId,
+        employeeName: data.employeeName,
+        departmentId: data.departmentId,
+        departmentName: data.departmentName,
+        vacationType: VACATION_TYPES.LIEU,
+        totalDays: data.lieuDays,
+        usedDays: 0,
+        remainingDays: data.lieuDays,
+        grantDate,
+        startDate: grantDate,
+        endDate: expireDate,
+        expireDate,
+        reason: 'overtime_convert',
+        description: `${overtimeTypeLabel}转换调休（${data.workHours}小时→${data.lieuDays}天）`,
+        grantedBy: 'overtime_system',
+        createdAt: getNow(),
+        isActive: true,
+        sourceOvertimeRequestId: data.overtimeRequestId || null
+      }
+
+      this.grants.unshift(grant)
+      this.saveGrantsToStorage()
+
+      this.recordAdjustment({
+        employeeId: data.employeeId,
+        employeeName: data.employeeName,
+        vacationType: VACATION_TYPES.LIEU,
+        changeType: 'add',
+        days: data.lieuDays,
+        reason: 'overtime_convert',
+        description: `${overtimeTypeLabel}转换调休`,
+        operator: 'overtime_system',
+        relatedGrantId: grant.id,
+        relatedOvertimeRequestId: data.overtimeRequestId || null
+      })
+
+      return { success: true, grant }
+    },
+
     grantAnnualLeaveBySeniority(employee, year = new Date().getFullYear(), grantedBy = 'system') {
       const workYears = calculateWorkYears(employee.hireDate, new Date(year, 0, 1))
       const days = calculateAnnualLeaveDays(employee.hireDate, new Date(year, 0, 1))
@@ -436,6 +493,7 @@ export const useVacationStore = defineStore('vacation', {
         operator: data.operator,
         relatedGrantId: data.relatedGrantId,
         relatedLeaveRequestId: data.relatedLeaveRequestId,
+        relatedOvertimeRequestId: data.relatedOvertimeRequestId || null,
         createdAt: getNow()
       }
 

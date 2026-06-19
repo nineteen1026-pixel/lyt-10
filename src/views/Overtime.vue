@@ -2,7 +2,7 @@
   <div class="overtime-page">
     <div class="page-header">
       <h2 class="page-title">加班申请</h2>
-      <p class="page-subtitle">提交加班申请，多级审批通过后自动计入考勤工时</p>
+      <p class="page-subtitle">提交加班申请，审批通过后自动计入考勤工时并转换调休额度</p>
     </div>
 
     <div class="card form-card">
@@ -28,7 +28,8 @@
               />
               <span class="type-dot" :style="{ background: type.color }"></span>
               <span class="type-label">{{ type.label }}</span>
-              <span class="type-rate">{{ type.rate }}倍</span>
+              <span class="type-rate">{{ type.rate }}倍计薪</span>
+              <span class="type-lieu-rate">{{ type.lieuRate }}倍调休</span>
             </label>
           </div>
           <span v-if="errors.overtimeType" class="error-message">{{ errors.overtimeType }}</span>
@@ -92,6 +93,11 @@
             <div class="hours-item highlight">
               <span class="hours-label">计薪工时</span>
               <span class="hours-value">{{ formData.overtimeHours }} 小时</span>
+            </div>
+            <div class="hours-divider"></div>
+            <div class="hours-item lieu-highlight">
+              <span class="hours-label">转换调休</span>
+              <span class="hours-value">{{ formData.lieuDays }} 天</span>
             </div>
           </div>
         </div>
@@ -256,6 +262,10 @@
               <span class="hours-label">计薪工时</span>
               <span class="hours-value">{{ request.overtimeHours }} 小时</span>
             </div>
+            <div v-if="isOvertimeFinalApproved(request.status) && request.lieuDays" class="lieu-info">
+              <span class="lieu-label">转换调休</span>
+              <span class="lieu-value">{{ request.lieuDays }} 天</span>
+            </div>
           </div>
 
           <div class="request-reason">
@@ -311,13 +321,15 @@ import {
   getOvertimeTypeLabel, 
   getOvertimeTypeColor,
   getOvertimeTypeRate,
+  getOvertimeTypeLieuRate,
   getOvertimeStatusText,
   getOvertimeStatusColor,
   getOvertimeApprovalProgress,
   isOvertimeFinalApproved,
   isOvertimeRejected,
   OVERTIME_STATUS,
-  calculateOvertimeHours
+  calculateOvertimeHours,
+  calculateLieuDays
 } from '@/utils/attendance'
 import { parseTime } from '@/utils/date'
 
@@ -339,6 +351,7 @@ const formData = reactive({
   endTime: '',
   workHours: 0,
   overtimeHours: 0,
+  lieuDays: 0,
   reason: ''
 })
 
@@ -417,6 +430,13 @@ watch(
   }
 )
 
+watch(
+  () => formData.overtimeType,
+  () => {
+    calculateHours()
+  }
+)
+
 const currentUserRoles = computed(() => {
   if (!currentUser.value) return []
   return currentUser.value.roles || []
@@ -480,6 +500,7 @@ function calculateHours() {
   if (!formData.startTime || !formData.endTime) {
     formData.workHours = 0
     formData.overtimeHours = 0
+    formData.lieuDays = 0
     return
   }
 
@@ -489,11 +510,13 @@ function calculateHours() {
   if (end <= start) {
     formData.workHours = 0
     formData.overtimeHours = 0
+    formData.lieuDays = 0
     return
   }
 
   formData.workHours = ((end - start) / 60).toFixed(2)
   formData.overtimeHours = calculateOvertimeHours(formData.startTime, formData.endTime, formData.overtimeType)
+  formData.lieuDays = calculateLieuDays(formData.startTime, formData.endTime, formData.overtimeType)
 }
 
 function validateForm() {
@@ -564,6 +587,7 @@ function handleSubmit() {
     employeeId: currentUser.value.id,
     employeeName: currentUser.value.name,
     department: currentUser.value.department,
+    departmentId: currentUser.value.departmentId,
     overtimeType: formData.overtimeType,
     date: formData.date,
     startTime: formData.startTime,
@@ -581,6 +605,7 @@ function resetForm() {
   formData.endTime = ''
   formData.workHours = 0
   formData.overtimeHours = 0
+  formData.lieuDays = 0
   formData.reason = ''
   errors.overtimeType = ''
   errors.date = ''
@@ -1053,6 +1078,15 @@ function rejectRequest(request) {
   font-weight: 600;
 }
 
+.type-lieu-rate {
+  font-size: 10px;
+  color: #1890ff;
+  background: #e6f7ff;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
 .hours-display {
   display: flex;
   align-items: center;
@@ -1069,6 +1103,10 @@ function rejectRequest(request) {
 
 .hours-item.highlight .hours-value {
   color: #667eea;
+}
+
+.hours-item.lieu-highlight .hours-value {
+  color: #1890ff;
 }
 
 .hours-label {
@@ -1386,7 +1424,8 @@ function rejectRequest(request) {
 }
 
 .time-info,
-.hours-info {
+.hours-info,
+.lieu-info {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1394,7 +1433,8 @@ function rejectRequest(request) {
 }
 
 .time-label,
-.hours-label {
+.hours-label,
+.lieu-label {
   font-size: 11px;
   color: #999;
 }
@@ -1409,6 +1449,12 @@ function rejectRequest(request) {
   font-size: 16px;
   font-weight: 700;
   color: #52c41a;
+}
+
+.lieu-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1890ff;
 }
 
 .request-reason {
@@ -1666,6 +1712,11 @@ function rejectRequest(request) {
   .hours-divider {
     width: 60%;
     height: 1px;
+  }
+
+  .request-time {
+    flex-direction: column;
+    gap: 10px;
   }
 
   .flow-steps {

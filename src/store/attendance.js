@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { getAttendanceRecords, setAttendanceRecords, getMakeupRequests, setMakeupRequests, getLeaveRequests, setLeaveRequests, getOvertimeRequests, setOvertimeRequests } from '@/utils/storage'
 import { getToday, getCurrentTime, getNow, formatDate, parseTime } from '@/utils/date'
-import { getCheckInStatus, getCheckOutStatus, getDayStatus, generateMonthCalendarData, calculateAttendanceStats, ATTENDANCE_STATUS, LEAVE_TYPES, getLeaveTypeLabel, OVERTIME_STATUS, OVERTIME_TYPES, getOvertimeStatusText, getOvertimeTypeLabel, isOvertimeFinalApproved, isOvertimeRejected, calculateOvertimeHours, getCheckInStatusWithShift, getCheckOutStatusWithShift, getDayStatusWithShift, calculateAttendanceStatsWithShift } from '@/utils/attendance'
+import { getCheckInStatus, getCheckOutStatus, getDayStatus, generateMonthCalendarData, calculateAttendanceStats, ATTENDANCE_STATUS, LEAVE_TYPES, getLeaveTypeLabel, OVERTIME_STATUS, OVERTIME_TYPES, getOvertimeStatusText, getOvertimeTypeLabel, isOvertimeFinalApproved, isOvertimeRejected, calculateOvertimeHours, getOvertimeTypeLieuRate, calculateLieuDays, getCheckInStatusWithShift, getCheckOutStatusWithShift, getDayStatusWithShift, calculateAttendanceStatsWithShift } from '@/utils/attendance'
 import { VACATION_TYPES } from '@/utils/vacation'
 import { useVacationStore } from '@/store/vacation'
 import { useScheduleStore } from '@/store/schedule'
@@ -586,6 +586,7 @@ export const useAttendanceStore = defineStore('attendance', {
         employeeId: data.employeeId,
         employeeName: data.employeeName,
         department: data.department,
+        departmentId: data.departmentId,
         overtimeType: data.overtimeType,
         date: data.date,
         startTime: data.startTime,
@@ -629,7 +630,7 @@ export const useAttendanceStore = defineStore('attendance', {
         },
         [OVERTIME_STATUS.PENDING_HR]: {
           next: OVERTIME_STATUS.APPROVED,
-          message: '加班申请已通过，工时已同步'
+          message: '加班申请已通过，工时已同步，调休额度已生成'
         }
       }
 
@@ -640,6 +641,7 @@ export const useAttendanceStore = defineStore('attendance', {
 
         if (flow.next === OVERTIME_STATUS.APPROVED) {
           this.syncOvertimeToAttendance(request)
+          this.convertOvertimeToLieu(request)
         }
 
         this.saveOvertimeRequestsToStorage()
@@ -695,6 +697,31 @@ export const useAttendanceStore = defineStore('attendance', {
       dateRecord.overtimeEndTime = request.endTime
 
       this.saveRecordsToStorage()
+    },
+
+    convertOvertimeToLieu(request) {
+      if (!isOvertimeFinalApproved(request.status)) return
+
+      const lieuDays = calculateLieuDays(request.startTime, request.endTime, request.overtimeType)
+      if (lieuDays <= 0) return
+
+      const vacationStore = useVacationStore()
+      const result = vacationStore.grantLieuFromOvertime({
+        employeeId: request.employeeId,
+        employeeName: request.employeeName,
+        departmentId: request.departmentId,
+        departmentName: request.department,
+        overtimeType: request.overtimeType,
+        overtimeTypeLabel: getOvertimeTypeLabel(request.overtimeType),
+        workHours: request.workHours,
+        lieuDays,
+        overtimeRequestId: request.id
+      })
+
+      if (result.success && result.grant) {
+        request.lieuGrantId = result.grant.id
+        request.lieuDays = lieuDays
+      }
     }
   }
 })

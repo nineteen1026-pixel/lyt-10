@@ -63,9 +63,9 @@ export const LEAVE_TYPES = [
 ]
 
 export const OVERTIME_TYPES = [
-  { value: 'weekday', label: '工作日加班', color: '#fa8c16', rate: 1.5 },
-  { value: 'weekend', label: '周末加班', color: '#722ed1', rate: 2.0 },
-  { value: 'holiday', label: '法定节假日加班', color: '#f5222d', rate: 3.0 }
+  { value: 'weekday', label: '工作日加班', color: '#fa8c16', rate: 1.5, lieuRate: 1.0 },
+  { value: 'weekend', label: '周末加班', color: '#722ed1', rate: 2.0, lieuRate: 1.5 },
+  { value: 'holiday', label: '法定节假日加班', color: '#f5222d', rate: 3.0, lieuRate: 2.0 }
 ]
 
 export const APPROVAL_STAGES = [
@@ -123,6 +123,26 @@ export function getOvertimeTypeColor(type) {
 export function getOvertimeTypeRate(type) {
   const overtimeType = OVERTIME_TYPES.find(t => t.value === type)
   return overtimeType ? overtimeType.rate : 1
+}
+
+export function getOvertimeTypeLieuRate(type) {
+  const overtimeType = OVERTIME_TYPES.find(t => t.value === type)
+  return overtimeType ? overtimeType.lieuRate : 1
+}
+
+export function calculateLieuDays(startTime, endTime, type) {
+  if (!startTime || !endTime) return 0
+
+  const start = parseTime(startTime)
+  const end = parseTime(endTime)
+
+  if (end <= start) return 0
+
+  const lieuRate = getOvertimeTypeLieuRate(type)
+  const hours = (end - start) / 60
+  const lieuHours = hours * lieuRate
+
+  return Math.round(lieuHours / 8 * 100) / 100
 }
 
 export function getOvertimeStatusText(status) {
