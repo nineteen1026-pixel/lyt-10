@@ -104,7 +104,7 @@ export const useAttendanceStore = defineStore('attendance', {
     },
 
     getDepartmentMonthStats: (state) => (employeeIds, year, month, shiftMaps = null) => {
-      const combined = { total: 0, normal: 0, late: 0, earlyLeave: 0, absent: 0, makeup: 0 }
+      const combined = { total: 0, normal: 0, late: 0, earlyLeave: 0, absent: 0, makeup: 0, leave: 0, businessTrip: 0, overtime: 0, overtimeHours: 0, weekdayOvertimeHours: 0, weekendOvertimeHours: 0, holidayOvertimeHours: 0 }
       employeeIds.forEach(empId => {
         const employeeRecords = state.records[empId] || {}
         const empShiftMap = shiftMaps && shiftMaps[empId] ? shiftMaps[empId] : null
@@ -121,7 +121,7 @@ export const useAttendanceStore = defineStore('attendance', {
     getDepartmentMonthTrend: (state) => (employeeIds, year, shiftMapsByMonth = null) => {
       const trend = []
       for (let m = 1; m <= 12; m++) {
-        const combined = { total: 0, normal: 0, late: 0, earlyLeave: 0, absent: 0, makeup: 0 }
+        const combined = { total: 0, normal: 0, late: 0, earlyLeave: 0, absent: 0, makeup: 0, leave: 0, businessTrip: 0, overtime: 0, overtimeHours: 0, weekdayOvertimeHours: 0, weekendOvertimeHours: 0, holidayOvertimeHours: 0 }
         employeeIds.forEach(empId => {
           const employeeRecords = state.records[empId] || {}
           const empShiftMap = shiftMapsByMonth && shiftMapsByMonth[empId] && shiftMapsByMonth[empId][m]

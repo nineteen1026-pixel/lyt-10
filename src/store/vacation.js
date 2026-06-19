@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { getVacationGrants, setVacationGrants, getVacationAdjustments, setVacationAdjustments, getLeaveRequests } from '@/utils/storage'
+import { getVacationGrants, setVacationGrants, getVacationAdjustments, setVacationAdjustments } from '@/utils/storage'
 import { getNow, formatDate } from '@/utils/date'
 import { 
   VACATION_TYPES, 
@@ -13,6 +13,7 @@ import {
   generateVacationGrantId,
   generateAdjustmentRecordId
 } from '@/utils/vacation'
+import { useAttendanceStore } from '@/store/attendance'
 
 function generateMockVacationGrants(employees) {
   const grants = []
@@ -103,7 +104,16 @@ export const useVacationStore = defineStore('vacation', {
       const used = grants.reduce((sum, g) => sum + g.usedDays, 0)
       const remaining = grants.reduce((sum, g) => sum + g.remainingDays, 0)
       
-      const pendingLeaves = getLeaveRequests().filter(r => 
+      let attendanceStore
+      try {
+        attendanceStore = useAttendanceStore()
+      } catch (e) {
+        attendanceStore = null
+      }
+      
+      const leaveRequests = attendanceStore ? attendanceStore.leaveRequests : []
+      
+      const pendingLeaves = leaveRequests.filter(r => 
         r.employeeId === employeeId && 
         r.leaveType === vacationType && 
         r.status === 'pending'
