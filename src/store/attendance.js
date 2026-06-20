@@ -468,6 +468,7 @@ export const useAttendanceStore = defineStore('attendance', {
         type: data.type,
         reason: data.reason,
         status: 'pending',
+        approverId: null,
         createdAt: getNow()
       }
 
@@ -528,6 +529,7 @@ export const useAttendanceStore = defineStore('attendance', {
         days: data.days,
         reason: data.reason,
         status: 'pending',
+        approverId: null,
         createdAt: getNow()
       }
 
@@ -710,6 +712,7 @@ export const useAttendanceStore = defineStore('attendance', {
         overtimeHours: calculatedHours,
         reason: data.reason,
         status: OVERTIME_STATUS.PENDING_SUPERVISOR,
+        approverId: null,
         approvalHistory: [],
         createdAt: getNow()
       }
@@ -1076,6 +1079,7 @@ export const useAttendanceStore = defineStore('attendance', {
           }
 
           if (targetRole) {
+            req.approverId = newApproverId
             if (!req.reassignHistory) req.reassignHistory = []
             req.reassignHistory.push({
               from: oldApproverId,

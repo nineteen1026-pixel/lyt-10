@@ -150,6 +150,7 @@ export const useBusinessTripStore = defineStore('businessTrip', {
         reason: data.reason,
         itinerary: data.itinerary || [],
         status: BUSINESS_TRIP_STATUS.PENDING_SUPERVISOR,
+        approverId: null,
         approvalHistory: [],
         createdAt: getNow()
       }
@@ -474,6 +475,7 @@ export const useBusinessTripStore = defineStore('businessTrip', {
         }
 
         if (targetRole) {
+          req.approverId = newApproverId
           if (!req.reassignHistory) req.reassignHistory = []
           req.reassignHistory.push({
             from: oldApproverId,

@@ -267,11 +267,20 @@ const getReassignedApproverId = (req) => {
   return latest.to || null
 }
 
+const hasReassignedApprovals = computed(() => {
+  if (!currentUser.value) return false
+  return attendanceStore.leaveRequests.some(req => {
+    if (req.status !== 'pending') return false
+    return getReassignedApproverId(req) === currentUser.value.id
+  })
+})
+
 const isAdmin = computed(() => {
-  if (!currentUser.value?.roles) return false
+  if (!currentUser.value?.roles) return hasReassignedApprovals.value
   return currentUser.value.roles.includes('manager') ||
          currentUser.value.roles.includes('hr') ||
-         currentUser.value.roles.includes('supervisor')
+         currentUser.value.roles.includes('supervisor') ||
+         hasReassignedApprovals.value
 })
 
 const requiresBalanceCheck = ['annual', 'lieu']

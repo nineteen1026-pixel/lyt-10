@@ -188,11 +188,12 @@
 
       <div v-if="hasApprovalRole && activeTab === 'pendingApproval'" class="role-banner">
         <span class="role-icon">🔐</span>
-        <span class="role-text">您的审批身份：
+        <span class="role-text" v-if="currentUserRoles.length > 0">您的审批身份：
           <span v-for="(role, idx) in currentUserRoles" :key="role" class="role-tag">
             {{ getApproverRoleName(role) }}<span v-if="idx < currentUserRoles.length - 1">，</span>
           </span>
         </span>
+        <span class="role-text" v-else>您有因重分配接手的待审批申请</span>
       </div>
 
       <div v-if="filteredRequests.length === 0" class="empty-state">
@@ -389,13 +390,15 @@ const isOwnDeptRequest = (req) => {
 }
 
 const isReassignedToMe = (req) => {
-  if (!req.reassignHistory || req.reassignHistory.length === 0) return false
   if (!currentUser.value) return false
+  if (req.approverId && req.approverId === currentUser.value.id) return true
+  if (!req.reassignHistory || req.reassignHistory.length === 0) return false
   const latest = req.reassignHistory[req.reassignHistory.length - 1]
   return latest.to === currentUser.value.id
 }
 
 const getReassignedApproverId = (req) => {
+  if (req.approverId) return req.approverId
   if (!req.reassignHistory || req.reassignHistory.length === 0) return null
   const latest = req.reassignHistory[req.reassignHistory.length - 1]
   return latest.to || null
@@ -478,7 +481,15 @@ watch(
   }
 )
 
-const hasApprovalRole = computed(() => currentUserRoles.value.length > 0)
+const hasReassignedApprovals = computed(() => {
+  if (!currentUser.value) return false
+  return allRequests.value.some(req => {
+    if (isOvertimeFinalApproved(req.status) || isOvertimeRejected(req.status)) return false
+    return getReassignedApproverId(req) === currentUser.value.id
+  })
+})
+
+const hasApprovalRole = computed(() => currentUserRoles.value.length > 0 || hasReassignedApprovals.value)
 
 const myRequests = computed(() => {
   if (!currentUser.value) return []
@@ -499,6 +510,7 @@ const pendingMyApproval = computed(() => {
       return reassignedApproverId === currentUser.value.id
     }
 
+    if (roles.length === 0) return false
     if (!isOwnDeptRequest(req)) return false
     const requiredRole = getApproverRole(req.status)
     return requiredRole && roles.includes(requiredRole)

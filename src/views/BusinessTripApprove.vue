@@ -263,13 +263,15 @@ const isOwnDeptRequest = (req) => {
 }
 
 const isReassignedToMe = (req) => {
-  if (!req.reassignHistory || req.reassignHistory.length === 0) return false
   if (!currentUser.value) return false
+  if (req.approverId && req.approverId === currentUser.value.id) return true
+  if (!req.reassignHistory || req.reassignHistory.length === 0) return false
   const latest = req.reassignHistory[req.reassignHistory.length - 1]
   return latest.to === currentUser.value.id
 }
 
 const getReassignedApproverId = (req) => {
+  if (req.approverId) return req.approverId
   if (!req.reassignHistory || req.reassignHistory.length === 0) return null
   const latest = req.reassignHistory[req.reassignHistory.length - 1]
   return latest.to || null
@@ -282,12 +284,21 @@ const myApprovalRoles = computed(() => {
   )
 })
 
-const isApprover = computed(() => {
-  return myApprovalRoles.value.length > 0
-})
-
 const allRequests = computed(() => {
   return businessTripStore.requests
+})
+
+const hasReassignedApprovals = computed(() => {
+  if (!currentUser.value) return false
+  return allRequests.value.some(req => {
+    if (isBusinessTripFinalApproved(req.status) || isBusinessTripRejected(req.status)) return false
+    if (req.status === 'cancelled') return false
+    return getReassignedApproverId(req) === currentUser.value.id
+  })
+})
+
+const isApprover = computed(() => {
+  return myApprovalRoles.value.length > 0 || hasReassignedApprovals.value
 })
 
 const pendingRequests = computed(() => {
