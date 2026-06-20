@@ -160,7 +160,7 @@
               <span class="request-submit-time">提交时间：{{ request.createdAt }}</span>
             </div>
 
-            <div v-if="canApprove(request.status)" class="approve-actions">
+            <div v-if="canApprove(request)" class="approve-actions">
               <button class="action-btn approve" @click="handleApprove(request.id)">
                 ✓ 通过
               </button>
@@ -208,6 +208,7 @@
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useEmployeeStore } from '@/store/employee'
 import { useBusinessTripStore } from '@/store/business-trip'
+import { useOrganizationStore } from '@/store/organization'
 import {
   BUSINESS_TRIP_STATUS,
   getBusinessTripStatusText,
@@ -225,6 +226,7 @@ import { ROLE_LABELS } from '@/data/employees'
 
 const employeeStore = useEmployeeStore()
 const businessTripStore = useBusinessTripStore()
+const organizationStore = useOrganizationStore()
 
 const activeTab = ref('pending')
 const selectedRole = ref('')
@@ -238,6 +240,27 @@ const currentRejectId = ref('')
 const approvalSteps = APPROVAL_STAGES
 
 const currentUser = computed(() => employeeStore.currentUser)
+
+const myManagedDeptIds = computed(() => {
+  if (!currentUser.value) return []
+  const userId = currentUser.value.id
+  const ids = new Set()
+  organizationStore.flatDepartments.forEach(dept => {
+    if (dept.managerId === userId) {
+      ids.add(dept.id)
+      organizationStore.getAllDescendantIds(dept.id).forEach(childId => ids.add(childId))
+    }
+  })
+  return Array.from(ids)
+})
+
+const isHr = computed(() => currentUser.value?.roles?.includes('hr'))
+
+const isOwnDeptRequest = (req) => {
+  if (isHr.value) return true
+  if (myManagedDeptIds.value.length === 0) return false
+  return myManagedDeptIds.value.includes(req.departmentId)
+}
 
 const myApprovalRoles = computed(() => {
   if (!currentUser.value?.roles) return []
@@ -256,7 +279,8 @@ const allRequests = computed(() => {
 
 const pendingRequests = computed(() => {
   if (selectedRole.value) {
-    return businessTripStore.getPendingRequests(selectedRole.value)
+    const roleRequests = businessTripStore.getPendingRequests(selectedRole.value)
+    return roleRequests.filter(req => isOwnDeptRequest(req))
   }
   let requests = []
   myApprovalRoles.value.forEach(role => {
@@ -264,7 +288,9 @@ const pendingRequests = computed(() => {
     requests = requests.concat(roleRequests)
   })
   const uniqueRequests = Array.from(new Map(requests.map(r => [r.id, r])).values())
-  return uniqueRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  return uniqueRequests
+    .filter(req => isOwnDeptRequest(req))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
 })
 
 const pendingCount = computed(() => {
@@ -302,12 +328,14 @@ function getApprovalProgress(status) {
   return getBusinessTripApprovalProgress(status)
 }
 
-function canApprove(status) {
+function canApprove(request) {
   if (activeTab.value !== 'pending') return false
-  if (!isBusinessTripPending(status)) return false
+  if (!isBusinessTripPending(request.status)) return false
 
-  const nextRole = getNextApproverRole(status)
+  const nextRole = getNextApproverRole(request.status)
   if (!nextRole) return false
+
+  if (!isOwnDeptRequest(request)) return false
 
   if (selectedRole.value) {
     return selectedRole.value === nextRole

@@ -315,6 +315,7 @@ import { ref, computed, reactive, onMounted, onUpdated, watch, nextTick } from '
 import { useRoute, useRouter } from 'vue-router'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
+import { useOrganizationStore } from '@/store/organization'
 import { 
   OVERTIME_TYPES, 
   APPROVAL_STAGES, 
@@ -337,6 +338,7 @@ const route = useRoute()
 const router = useRouter()
 const employeeStore = useEmployeeStore()
 const attendanceStore = useAttendanceStore()
+const organizationStore = useOrganizationStore()
 
 const activeTab = ref('all')
 const highlightedId = ref('')
@@ -364,6 +366,32 @@ const errors = reactive({
 })
 
 const currentUser = computed(() => employeeStore.currentUser)
+
+const myManagedDeptIds = computed(() => {
+  if (!currentUser.value) return []
+  const userId = currentUser.value.id
+  const ids = new Set()
+  organizationStore.flatDepartments.forEach(dept => {
+    if (dept.managerId === userId) {
+      ids.add(dept.id)
+      organizationStore.getAllDescendantIds(dept.id).forEach(childId => ids.add(childId))
+    }
+  })
+  return Array.from(ids)
+})
+
+const isHr = computed(() => currentUser.value?.roles?.includes('hr'))
+
+const isOwnDeptRequest = (req) => {
+  if (isHr.value) return true
+  if (myManagedDeptIds.value.length === 0) return false
+  return myManagedDeptIds.value.includes(req.departmentId)
+}
+
+const currentUserRoles = computed(() => {
+  if (!currentUser.value) return []
+  return currentUser.value.roles || []
+})
 
 function setRequestRef(el, id) {
   if (el) {
@@ -437,11 +465,6 @@ watch(
   }
 )
 
-const currentUserRoles = computed(() => {
-  if (!currentUser.value) return []
-  return currentUser.value.roles || []
-})
-
 const hasApprovalRole = computed(() => currentUserRoles.value.length > 0)
 
 const myRequests = computed(() => {
@@ -457,6 +480,7 @@ const pendingMyApproval = computed(() => {
   return allRequests.value.filter(req => {
     if (isOvertimeFinalApproved(req.status) || isOvertimeRejected(req.status)) return false
     if (req.employeeId === currentUser.value?.id) return false
+    if (!isOwnDeptRequest(req)) return false
     const requiredRole = getApproverRole(req.status)
     return requiredRole && roles.includes(requiredRole)
   })
@@ -619,17 +643,6 @@ function isApplicantSelf(request) {
   return request.employeeId === currentUser.value.id
 }
 
-function canApproveStage(request, stageId) {
-  if (!hasApprovalRole.value) return false
-  if (isApplicantSelf(request)) return false
-  
-  const requiredRole = getApproverRole(request.status)
-  if (!requiredRole) return false
-  if (stageId !== requiredRole) return false
-  
-  return currentUserRoles.value.includes(requiredRole)
-}
-
 function canApprove(request) {
   if (isOvertimeFinalApproved(request.status) || isOvertimeRejected(request.status)) {
     return false
@@ -640,6 +653,10 @@ function canApprove(request) {
   }
 
   if (!hasApprovalRole.value) {
+    return false
+  }
+
+  if (!isOwnDeptRequest(request)) {
     return false
   }
   
@@ -656,6 +673,18 @@ function canApprove(request) {
   const requiredRole = getApproverRole(request.status)
   if (!requiredRole) return false
 
+  return currentUserRoles.value.includes(requiredRole)
+}
+
+function canApproveStage(request, stageId) {
+  if (!hasApprovalRole.value) return false
+  if (isApplicantSelf(request)) return false
+  if (!isOwnDeptRequest(request)) return false
+  
+  const requiredRole = getApproverRole(request.status)
+  if (!requiredRole) return false
+  if (stageId !== requiredRole) return false
+  
   return currentUserRoles.value.includes(requiredRole)
 }
 

@@ -189,7 +189,7 @@
           </div>
           <div class="request-footer">
             <span class="request-submit-time">提交时间：{{ request.createdAt }}</span>
-            <div class="request-actions" v-if="request.status === 'pending' && isAdmin">
+            <div class="request-actions" v-if="request.status === 'pending' && isAdmin && isOwnDeptRequest(request)">
               <button class="action-btn approve" @click="approveRequest(request.id)">
                 通过
               </button>
@@ -209,6 +209,7 @@ import { ref, computed, reactive, onMounted, onUpdated, watch, nextTick } from '
 import { useRoute, useRouter } from 'vue-router'
 import { useEmployeeStore } from '@/store/employee'
 import { useAttendanceStore } from '@/store/attendance'
+import { useOrganizationStore } from '@/store/organization'
 import { useVacationStore } from '@/store/vacation'
 import { LEAVE_TYPES, getLeaveTypeLabel } from '@/utils/attendance'
 import { formatDate } from '@/utils/date'
@@ -218,12 +219,36 @@ const route = useRoute()
 const router = useRouter()
 const employeeStore = useEmployeeStore()
 const attendanceStore = useAttendanceStore()
+const organizationStore = useOrganizationStore()
 const vacationStore = useVacationStore()
 
 const activeTab = ref('all')
 const highlightedId = ref('')
 const isApprovalMode = ref(false)
 const requestRefs = new Map()
+
+const currentUser = computed(() => employeeStore.currentUser)
+
+const myManagedDeptIds = computed(() => {
+  if (!currentUser.value) return []
+  const userId = currentUser.value.id
+  const ids = new Set()
+  organizationStore.flatDepartments.forEach(dept => {
+    if (dept.managerId === userId) {
+      ids.add(dept.id)
+      organizationStore.getAllDescendantIds(dept.id).forEach(childId => ids.add(childId))
+    }
+  })
+  return Array.from(ids)
+})
+
+const isHr = computed(() => currentUser.value?.roles?.includes('hr'))
+
+const isOwnDeptRequest = (req) => {
+  if (isHr.value) return true
+  if (myManagedDeptIds.value.length === 0) return false
+  return myManagedDeptIds.value.includes(req.departmentId) || req.departmentId === undefined
+}
 
 const isAdmin = computed(() => {
   if (!currentUser.value?.roles) return false
@@ -265,8 +290,6 @@ const errors = reactive({
   endDate: '',
   reason: ''
 })
-
-const currentUser = computed(() => employeeStore.currentUser)
 
 function setRequestRef(el, id) {
   if (el) {
@@ -342,7 +365,7 @@ const myRequests = computed(() => {
     if (applicantIdFromQuery && typeof applicantIdFromQuery === 'string') {
       allRequests = allRequests.filter(r => r.employeeId === applicantIdFromQuery)
     }
-    return allRequests
+    return allRequests.filter(r => isOwnDeptRequest(r))
   }
   return attendanceStore.getEmployeeLeaveRequests(currentUser.value.id)
 })
@@ -449,6 +472,8 @@ function handleSubmit() {
   attendanceStore.submitLeaveRequest({
     employeeId: currentUser.value.id,
     employeeName: currentUser.value.name,
+    department: currentUser.value.department,
+    departmentId: currentUser.value.departmentId,
     leaveType: formData.leaveType,
     startDate: formData.startDate,
     endDate: formData.endDate,
