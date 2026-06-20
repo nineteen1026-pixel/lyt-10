@@ -318,7 +318,7 @@
                       <span class="history-role">{{ getRoleLabel(record.role) }}</span>
                       <span class="history-name">{{ record.name }}</span>
                       <span class="history-action" :class="record.action">
-                        {{ record.action === 'approve' ? '通过' : '拒绝' }}
+                        {{ record.action === 'approve' ? '通过' : record.action === 'reassign' ? '审批人变更' : '拒绝' }}
                       </span>
                     </div>
                     <div class="history-time">{{ record.time }}</div>
@@ -743,6 +743,7 @@ function handleSubmit() {
     employeeId: currentUser.value.id,
     employeeName: currentUser.value.name,
     department: currentUser.value.department,
+    departmentId: currentUser.value.departmentId,
     tripType: formData.tripType,
     destination: formData.destination,
     startDate: formData.startDate,
@@ -1723,6 +1724,10 @@ onMounted(() => {
   background: #f5222d;
 }
 
+.history-dot.reassign {
+  background: #722ed1;
+}
+
 .history-content {
   flex: 1;
 }
@@ -1759,6 +1764,11 @@ onMounted(() => {
 .history-action.reject {
   background: #fff1f0;
   color: #f5222d;
+}
+
+.history-action.reassign {
+  background: #f9f0ff;
+  color: #722ed1;
 }
 
 .history-time {

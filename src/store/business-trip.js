@@ -140,6 +140,7 @@ export const useBusinessTripStore = defineStore('businessTrip', {
         employeeId: data.employeeId,
         employeeName: data.employeeName,
         department: data.department,
+        departmentId: data.departmentId,
         tripType: data.tripType,
         destination: data.destination,
         startDate: data.startDate,
@@ -419,8 +420,9 @@ export const useBusinessTripStore = defineStore('businessTrip', {
       this.requests.forEach(req => {
         if (req.employeeId === employeeId) {
           const allOldIds = Array.isArray(oldDepartmentId) ? oldDepartmentId : [oldDepartmentId]
-          if (allOldIds.includes(req.departmentId) || oldDepartmentId === null) {
+          if (allOldIds.includes(req.departmentId) || oldDepartmentId === null || req.departmentId === undefined) {
             req.department = newDepartmentName
+            req.departmentId = newDepartmentId
             updated.push(req.id)
           }
         }
@@ -473,6 +475,17 @@ export const useBusinessTripStore = defineStore('businessTrip', {
             reason,
             time: getNow()
           })
+
+          const oldApprover = oldApproverId ? `原${targetRole === 'supervisor' ? '直属领导' : '部门经理'}` : '原审批人'
+          const newApprover = newApproverName || '新审批人'
+          req.approvalHistory.push({
+            role: targetRole,
+            name: `${oldApprover}→${newApprover}`,
+            action: 'reassign',
+            reason,
+            time: getNow()
+          })
+
           reassigned.push(req.id)
         }
       })

@@ -961,6 +961,7 @@ export const useAttendanceStore = defineStore('attendance', {
 
       this.makeupRequests.forEach(req => {
         if (req.employeeId === employeeId && req.status === 'pending') {
+          const oldName = req.approverName || '原审批人'
           req.approverId = newApproverId
           req.approverName = newApproverName
           if (!req.reassignHistory) req.reassignHistory = []
@@ -976,6 +977,7 @@ export const useAttendanceStore = defineStore('attendance', {
 
       this.leaveRequests.forEach(req => {
         if (req.employeeId === employeeId && req.status === 'pending') {
+          const oldName = req.approverName || '原审批人'
           req.approverId = newApproverId
           req.approverName = newApproverName
           if (!req.reassignHistory) req.reassignHistory = []
@@ -992,15 +994,36 @@ export const useAttendanceStore = defineStore('attendance', {
       this.overtimeRequests.forEach(req => {
         if (req.employeeId === employeeId && !isOvertimeFinalApproved(req.status) && !isOvertimeRejected(req.status)) {
           const supervisorApproved = req.approvalHistory?.some(h => h.role === 'supervisor' && h.action === 'approve')
+          const managerApproved = req.approvalHistory?.some(h => h.role === 'manager' && h.action === 'approve')
+
+          let targetRole = null
           if (!supervisorApproved && req.status === OVERTIME_STATUS.PENDING_SUPERVISOR) {
+            targetRole = 'supervisor'
+          } else if (supervisorApproved && !managerApproved &&
+            (req.status === OVERTIME_STATUS.PENDING_MANAGER)) {
+            targetRole = 'manager'
+          }
+
+          if (targetRole) {
             if (!req.reassignHistory) req.reassignHistory = []
             req.reassignHistory.push({
               from: oldApproverId,
               to: newApproverId,
-              role: 'supervisor',
+              role: targetRole,
               reason,
               time: getNow()
             })
+
+            const oldApprover = oldApproverId ? `原${targetRole === 'supervisor' ? '直属领导' : '部门经理'}` : '原审批人'
+            const newApprover = newApproverName || '新审批人'
+            req.approvalHistory.push({
+              role: targetRole,
+              name: `${oldApprover}→${newApprover}`,
+              action: 'reassign',
+              reason,
+              time: getNow()
+            })
+
             reassigned.overtime.push(req.id)
           }
         }
@@ -1038,7 +1061,7 @@ export const useAttendanceStore = defineStore('attendance', {
       this.overtimeRequests.forEach(req => {
         if (req.employeeId === employeeId) {
           const allOldIds = Array.isArray(oldDepartmentId) ? oldDepartmentId : [oldDepartmentId]
-          if (allOldIds.includes(req.departmentId) || oldDepartmentId === null) {
+          if (allOldIds.includes(req.departmentId) || oldDepartmentId === null || req.departmentId === undefined) {
             req.departmentId = newDepartmentId
             req.department = newDepartmentName
             updated.push(req.id)
@@ -1046,7 +1069,31 @@ export const useAttendanceStore = defineStore('attendance', {
         }
       })
 
+      this.makeupRequests.forEach(req => {
+        if (req.employeeId === employeeId) {
+          const allOldIds = Array.isArray(oldDepartmentId) ? oldDepartmentId : [oldDepartmentId]
+          if (allOldIds.includes(req.departmentId) || oldDepartmentId === null || req.departmentId === undefined) {
+            req.departmentId = newDepartmentId
+            req.department = newDepartmentName
+            if (!updated.includes(req.id)) updated.push(req.id)
+          }
+        }
+      })
+
+      this.leaveRequests.forEach(req => {
+        if (req.employeeId === employeeId) {
+          const allOldIds = Array.isArray(oldDepartmentId) ? oldDepartmentId : [oldDepartmentId]
+          if (allOldIds.includes(req.departmentId) || oldDepartmentId === null || req.departmentId === undefined) {
+            req.departmentId = newDepartmentId
+            req.department = newDepartmentName
+            if (!updated.includes(req.id)) updated.push(req.id)
+          }
+        }
+      })
+
       this.saveOvertimeRequestsToStorage()
+      this.saveMakeupRequestsToStorage()
+      this.saveLeaveRequestsToStorage()
       return updated
     },
 

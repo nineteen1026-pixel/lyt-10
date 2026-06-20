@@ -281,7 +281,7 @@
                 <span class="history-name">{{ record.name }}</span>
                 <span class="history-role">({{ getApproverRoleName(record.role) }})</span>
                 <span class="history-action" :class="record.action">
-                  {{ record.action === 'approve' ? '已通过' : '已拒绝' }}
+                  {{ record.action === 'approve' ? '已通过' : record.action === 'reassign' ? '审批人变更' : '已拒绝' }}
                 </span>
                 <span class="history-time">{{ record.time }}</span>
               </div>
@@ -1574,6 +1574,10 @@ function getLieuConvertText(request) {
   background: #f5222d;
 }
 
+.history-dot.reassign {
+  background: #722ed1;
+}
+
 .history-name {
   color: #333;
   font-weight: 500;
@@ -1589,6 +1593,10 @@ function getLieuConvertText(request) {
 
 .history-action.reject {
   color: #f5222d;
+}
+
+.history-action.reassign {
+  color: #722ed1;
 }
 
 .history-time {
