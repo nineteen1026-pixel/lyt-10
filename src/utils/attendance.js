@@ -500,10 +500,11 @@ export function calculateAttendanceStatsWithShift(records, year, month, shiftMap
     const isWeekend = date.getDay() === 0 || date.getDay() === 6
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     const shiftType = (shiftMap && shiftMap[dateStr]) || 'standard'
+    const hasExplicitShift = !!(shiftMap && shiftMap[dateStr])
 
-    if (shiftType !== 'rest' && !isWeekend) {
-      stats.total++
-    } else if (shiftType !== 'rest' && isWeekend && shiftMap && shiftMap[dateStr]) {
+    const isWorkDay = shiftType !== 'rest' && (!isWeekend || hasExplicitShift)
+
+    if (isWorkDay) {
       stats.total++
     }
 
@@ -524,7 +525,7 @@ export function calculateAttendanceStatsWithShift(records, year, month, shiftMap
       }
     }
 
-    if (shiftType === 'rest' && !record) continue
+    if (!isWorkDay) continue
 
     switch (status) {
       case ATTENDANCE_STATUS.NORMAL:
