@@ -289,9 +289,62 @@ export const useBusinessTripStore = defineStore('businessTrip', {
 
       this.checkins.unshift(checkin)
       this.saveCheckinsToStorage()
-      this.showToast('签到成功', 'success')
+
+      this.syncCheckinToAttendance(checkin)
+
+      this.showToast('签到成功，考勤已同步', 'success')
 
       return checkin
+    },
+
+    syncCheckinToAttendance(checkin) {
+      const records = getAttendanceRecords()
+
+      if (!records[checkin.employeeId]) {
+        records[checkin.employeeId] = {}
+      }
+
+      const today = checkin.date
+      if (!records[checkin.employeeId][today]) {
+        records[checkin.employeeId][today] = {}
+      }
+
+      const dayRecord = records[checkin.employeeId][today]
+      dayRecord.isBusinessTrip = true
+      dayRecord.businessTripId = checkin.tripId
+
+      if (!dayRecord.businessTripCheckins) {
+        dayRecord.businessTripCheckins = []
+      }
+
+      const existingIndex = dayRecord.businessTripCheckins.findIndex(
+        c => c.checkinType === checkin.checkinType
+      )
+      if (existingIndex > -1) {
+        dayRecord.businessTripCheckins[existingIndex] = {
+          checkinType: checkin.checkinType,
+          time: checkin.time,
+          location: checkin.location
+        }
+      } else {
+        dayRecord.businessTripCheckins.push({
+          checkinType: checkin.checkinType,
+          time: checkin.time,
+          location: checkin.location
+        })
+      }
+
+      if (checkin.checkinType === 'morning') {
+        dayRecord.checkIn = checkin.time
+        dayRecord.checkInTime = checkin.createdAt
+        dayRecord.businessTripCheckIn = true
+      } else if (checkin.checkinType === 'afternoon') {
+        dayRecord.checkOut = checkin.time
+        dayRecord.checkOutTime = checkin.createdAt
+        dayRecord.businessTripCheckOut = true
+      }
+
+      setAttendanceRecords(records)
     },
 
     addItineraryItem(requestId, item) {

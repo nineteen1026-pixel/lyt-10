@@ -148,7 +148,8 @@
             empty: !day,
             weekend: day && isWeekend(day.date),
             today: day && day.date === today,
-            absent: day && calendarData[day.date]?.status === 'absent'
+            absent: day && calendarData[day.date]?.status === 'absent',
+            'business-trip': day && calendarData[day.date]?.status === 'business_trip'
           }"
           @click="day && showDayDetail(day)"
         >
@@ -170,6 +171,17 @@
             <div v-else class="day-status no-record">
               <span class="status-text">-</span>
             </div>
+            <div v-if="calendarData[day.date]?.record?.isBusinessTrip" class="business-trip-badge">
+              <span class="trip-icon">✈️</span>
+            </div>
+            <div v-if="calendarData[day.date]?.record?.businessTripCheckins?.length" class="checkin-dots">
+              <span
+                v-for="ci in calendarData[day.date].record.businessTripCheckins"
+                :key="ci.checkinType"
+                class="checkin-dot"
+                :title="`${ci.checkinType === 'morning' ? '上午' : '下午'}已签到`"
+              ></span>
+            </div>
           </template>
         </div>
       </div>
@@ -187,10 +199,21 @@
             <div class="leave-title">{{ getLeaveTypeLabel(selectedDayRecord.leaveType) }}</div>
             <div class="leave-desc">当日请假，已通过审批</div>
           </div>
-          <div v-else-if="selectedDayRecord.isBusinessTrip" class="leave-detail">
+          <div v-else-if="selectedDayRecord.isBusinessTrip" class="leave-detail business-trip-detail">
             <div class="leave-icon">✈️</div>
-            <div class="leave-title">出差</div>
-            <div class="leave-desc">当日出差，已通过审批，考勤自动豁免</div>
+            <div class="leave-title">出差{{ selectedDayRecord.businessTripDestination ? ' · ' + selectedDayRecord.businessTripDestination : '' }}</div>
+            <div class="leave-desc">当日出差，已通过审批，视为正常出勤</div>
+            <div v-if="selectedDayRecord.businessTripCheckins && selectedDayRecord.businessTripCheckins.length > 0" class="trip-checkins">
+              <div class="trip-checkins-title">签到记录</div>
+              <div class="trip-checkin-item" v-for="ci in selectedDayRecord.businessTripCheckins" :key="ci.checkinType">
+                <span class="checkin-type-badge">{{ ci.checkinType === 'morning' ? '上午签到' : '下午签到' }}</span>
+                <span class="checkin-time">{{ ci.time }}</span>
+                <span class="checkin-location" v-if="ci.location">📍 {{ ci.location }}</span>
+              </div>
+            </div>
+            <div v-else class="trip-no-checkins">
+              <span>⚠️ 当日未进行出差签到</span>
+            </div>
           </div>
           <template v-else>
             <div class="detail-row" v-if="selectedDayShiftType">
@@ -847,8 +870,53 @@ watch(selectedEmployeeId, () => {
   border-radius: 3px;
 }
 
+.calendar-day.business-trip {
+  background: linear-gradient(135deg, #e6fffb 0%, #f0fffe 100%);
+}
+
+.calendar-day.business-trip.today {
+  background: linear-gradient(135deg, #b5f5ec 0%, #e6fffb 100%);
+}
+
 .calendar-day {
   position: relative;
+}
+
+.business-trip-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(135deg, #13c2c2 0%, #08979c 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(19, 194, 194, 0.4);
+}
+
+.business-trip-badge .trip-icon {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.checkin-dots {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+  z-index: 2;
+}
+
+.checkin-dot {
+  width: 6px;
+  height: 6px;
+  background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(82, 196, 26, 0.4);
 }
 
 @keyframes pulse {
@@ -1105,6 +1173,15 @@ watch(selectedEmployeeId, () => {
   margin-bottom: 16px;
 }
 
+.leave-detail.business-trip-detail {
+  background: linear-gradient(135deg, #e6fffb 0%, #b5f5ec 100%);
+  border: 1px solid #87e8de;
+}
+
+.leave-detail.business-trip-detail .leave-title {
+  color: #08979c;
+}
+
 .leave-icon {
   font-size: 48px;
   margin-bottom: 8px;
@@ -1120,6 +1197,71 @@ watch(selectedEmployeeId, () => {
 .leave-desc {
   font-size: 13px;
   color: #999;
+}
+
+.trip-checkins {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(8, 151, 156, 0.2);
+  text-align: left;
+}
+
+.trip-checkins-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #08979c;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.trip-checkin-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.trip-checkin-item:last-child {
+  margin-bottom: 0;
+}
+
+.checkin-type-badge {
+  padding: 3px 10px;
+  background: #08979c;
+  color: white;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.checkin-time {
+  font-weight: 600;
+  color: #333;
+  font-family: 'Courier New', monospace;
+}
+
+.checkin-location {
+  color: #666;
+  font-size: 12px;
+  flex: 1;
+  min-width: 100%;
+  margin-top: 4px;
+}
+
+.trip-no-checkins {
+  margin-top: 14px;
+  padding: 10px;
+  background: rgba(250, 173, 20, 0.1);
+  border-radius: 8px;
+  color: #d46b08;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .no-record {
@@ -1263,6 +1405,20 @@ watch(selectedEmployeeId, () => {
   .status-indicator {
     width: 7px;
     height: 7px;
+  }
+
+  .business-trip-badge {
+    width: 16px;
+    height: 16px;
+  }
+
+  .business-trip-badge .trip-icon {
+    font-size: 9px;
+  }
+
+  .checkin-dot {
+    width: 5px;
+    height: 5px;
   }
 }
 

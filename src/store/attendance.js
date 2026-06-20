@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
-import { getAttendanceRecords, setAttendanceRecords, getMakeupRequests, setMakeupRequests, getLeaveRequests, setLeaveRequests, getOvertimeRequests, setOvertimeRequests } from '@/utils/storage'
+import { getAttendanceRecords, setAttendanceRecords, getMakeupRequests, setMakeupRequests, getLeaveRequests, setLeaveRequests, getOvertimeRequests, setOvertimeRequests, getBusinessTripCheckins, getBusinessTripRequests } from '@/utils/storage'
 import { getToday, getCurrentTime, getNow, formatDate, parseTime } from '@/utils/date'
 import { getCheckInStatus, getCheckOutStatus, getDayStatus, generateMonthCalendarData, calculateAttendanceStats, ATTENDANCE_STATUS, LEAVE_TYPES, getLeaveTypeLabel, OVERTIME_STATUS, OVERTIME_TYPES, getOvertimeStatusText, getOvertimeTypeLabel, isOvertimeFinalApproved, isOvertimeRejected, calculateOvertimeHours, getOvertimeTypeLieuRate, calculateLieuDays, getCheckInStatusWithShift, getCheckOutStatusWithShift, getDayStatusWithShift, calculateAttendanceStatsWithShift } from '@/utils/attendance'
 import { VACATION_TYPES } from '@/utils/vacation'
 import { useVacationStore } from '@/store/vacation'
 import { useScheduleStore } from '@/store/schedule'
+import { isBusinessTripFinalApproved, isDateInTrip } from '@/utils/business-trip'
 
 function generateMockRecords() {
   const records = {}
@@ -240,6 +241,115 @@ export const useAttendanceStore = defineStore('attendance', {
 
       const storedOvertimeRequests = getOvertimeRequests()
       this.overtimeRequests = storedOvertimeRequests
+
+      this.syncBusinessTripsToAttendance()
+    },
+
+    syncBusinessTripsToAttendance() {
+      const tripRequests = getBusinessTripRequests()
+      const tripCheckins = getBusinessTripCheckins()
+
+      let needsSave = false
+
+      tripRequests.forEach(trip => {
+        if (!isBusinessTripFinalApproved(trip.status)) return
+
+        const startDate = new Date(trip.startDate)
+        const endDate = new Date(trip.endDate)
+
+        if (!this.records[trip.employeeId]) {
+          this.records[trip.employeeId] = {}
+        }
+
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+          const dateStr = formatDate(d, 'YYYY-MM-DD')
+          if (!this.records[trip.employeeId][dateStr]) {
+            this.records[trip.employeeId][dateStr] = {}
+            needsSave = true
+          }
+          const dayRecord = this.records[trip.employeeId][dateStr]
+          if (!dayRecord.isBusinessTrip) {
+            dayRecord.isBusinessTrip = true
+            needsSave = true
+          }
+          if (!dayRecord.businessTripType) {
+            dayRecord.businessTripType = trip.tripType
+            needsSave = true
+          }
+          if (!dayRecord.businessTripId) {
+            dayRecord.businessTripId = trip.id
+            needsSave = true
+          }
+          if (!dayRecord.businessTripDestination) {
+            dayRecord.businessTripDestination = trip.destination
+            needsSave = true
+          }
+        }
+      })
+
+      tripCheckins.forEach(checkin => {
+        if (!this.records[checkin.employeeId]) {
+          this.records[checkin.employeeId] = {}
+        }
+        if (!this.records[checkin.employeeId][checkin.date]) {
+          this.records[checkin.employeeId][checkin.date] = {}
+        }
+
+        const dayRecord = this.records[checkin.employeeId][checkin.date]
+        if (!dayRecord.isBusinessTrip) {
+          dayRecord.isBusinessTrip = true
+          needsSave = true
+        }
+        if (!dayRecord.businessTripId) {
+          dayRecord.businessTripId = checkin.tripId
+          needsSave = true
+        }
+
+        if (!dayRecord.businessTripCheckins) {
+          dayRecord.businessTripCheckins = []
+        }
+
+        const existingIndex = dayRecord.businessTripCheckins.findIndex(
+          c => c.checkinType === checkin.checkinType
+        )
+        if (existingIndex > -1) {
+          if (dayRecord.businessTripCheckins[existingIndex].time !== checkin.time) {
+            dayRecord.businessTripCheckins[existingIndex] = {
+              checkinType: checkin.checkinType,
+              time: checkin.time,
+              location: checkin.location
+            }
+            needsSave = true
+          }
+        } else {
+          dayRecord.businessTripCheckins.push({
+            checkinType: checkin.checkinType,
+            time: checkin.time,
+            location: checkin.location
+          })
+          needsSave = true
+        }
+
+        if (checkin.checkinType === 'morning') {
+          if (!dayRecord.checkIn || dayRecord.checkIn !== checkin.time) {
+            dayRecord.checkIn = checkin.time
+            dayRecord.checkInTime = checkin.createdAt
+            dayRecord.businessTripCheckIn = true
+            needsSave = true
+          }
+        } else if (checkin.checkinType === 'afternoon') {
+          if (!dayRecord.checkOut || dayRecord.checkOut !== checkin.time) {
+            dayRecord.checkOut = checkin.time
+            dayRecord.checkOutTime = checkin.createdAt
+            dayRecord.businessTripCheckOut = true
+            needsSave = true
+          }
+        }
+      })
+
+      if (needsSave) {
+        this.saveRecordsToStorage()
+      }
     },
 
     saveRecordsToStorage() {
