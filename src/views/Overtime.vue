@@ -385,7 +385,20 @@ const isHr = computed(() => currentUser.value?.roles?.includes('hr'))
 const isOwnDeptRequest = (req) => {
   if (isHr.value) return true
   if (myManagedDeptIds.value.length === 0) return false
-  return myManagedDeptIds.value.includes(req.departmentId)
+  return myManagedDeptIds.value.includes(req.departmentId) || req.departmentId === undefined
+}
+
+const isReassignedToMe = (req) => {
+  if (!req.reassignHistory || req.reassignHistory.length === 0) return false
+  if (!currentUser.value) return false
+  const latest = req.reassignHistory[req.reassignHistory.length - 1]
+  return latest.to === currentUser.value.id
+}
+
+const getReassignedApproverId = (req) => {
+  if (!req.reassignHistory || req.reassignHistory.length === 0) return null
+  const latest = req.reassignHistory[req.reassignHistory.length - 1]
+  return latest.to || null
 }
 
 const currentUserRoles = computed(() => {
@@ -480,6 +493,12 @@ const pendingMyApproval = computed(() => {
   return allRequests.value.filter(req => {
     if (isOvertimeFinalApproved(req.status) || isOvertimeRejected(req.status)) return false
     if (req.employeeId === currentUser.value?.id) return false
+
+    const reassignedApproverId = getReassignedApproverId(req)
+    if (reassignedApproverId) {
+      return reassignedApproverId === currentUser.value.id
+    }
+
     if (!isOwnDeptRequest(req)) return false
     const requiredRole = getApproverRole(req.status)
     return requiredRole && roles.includes(requiredRole)
@@ -652,6 +671,11 @@ function canApprove(request) {
     return false
   }
 
+  const reassignedApproverId = getReassignedApproverId(request)
+  if (reassignedApproverId) {
+    return reassignedApproverId === currentUser.value?.id
+  }
+
   if (!hasApprovalRole.value) {
     return false
   }
@@ -677,8 +701,17 @@ function canApprove(request) {
 }
 
 function canApproveStage(request, stageId) {
-  if (!hasApprovalRole.value) return false
   if (isApplicantSelf(request)) return false
+
+  const reassignedApproverId = getReassignedApproverId(request)
+  if (reassignedApproverId) {
+    if (reassignedApproverId !== currentUser.value?.id) return false
+    const requiredRole = getApproverRole(request.status)
+    if (!requiredRole) return false
+    return stageId === requiredRole
+  }
+
+  if (!hasApprovalRole.value) return false
   if (!isOwnDeptRequest(request)) return false
   
   const requiredRole = getApproverRole(request.status)

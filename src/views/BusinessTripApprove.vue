@@ -259,7 +259,20 @@ const isHr = computed(() => currentUser.value?.roles?.includes('hr'))
 const isOwnDeptRequest = (req) => {
   if (isHr.value) return true
   if (myManagedDeptIds.value.length === 0) return false
-  return myManagedDeptIds.value.includes(req.departmentId)
+  return myManagedDeptIds.value.includes(req.departmentId) || req.departmentId === undefined
+}
+
+const isReassignedToMe = (req) => {
+  if (!req.reassignHistory || req.reassignHistory.length === 0) return false
+  if (!currentUser.value) return false
+  const latest = req.reassignHistory[req.reassignHistory.length - 1]
+  return latest.to === currentUser.value.id
+}
+
+const getReassignedApproverId = (req) => {
+  if (!req.reassignHistory || req.reassignHistory.length === 0) return null
+  const latest = req.reassignHistory[req.reassignHistory.length - 1]
+  return latest.to || null
 }
 
 const myApprovalRoles = computed(() => {
@@ -278,19 +291,39 @@ const allRequests = computed(() => {
 })
 
 const pendingRequests = computed(() => {
-  if (selectedRole.value) {
-    const roleRequests = businessTripStore.getPendingRequests(selectedRole.value)
-    return roleRequests.filter(req => isOwnDeptRequest(req))
-  }
   let requests = []
-  myApprovalRoles.value.forEach(role => {
-    const roleRequests = businessTripStore.getPendingRequests(role)
-    requests = requests.concat(roleRequests)
+
+  const reassignedRequests = allRequests.value.filter(req => {
+    const reassignedApproverId = getReassignedApproverId(req)
+    if (!reassignedApproverId) return false
+    if (reassignedApproverId !== currentUser.value?.id) return false
+    if (isBusinessTripFinalApproved(req.status) || isBusinessTripRejected(req.status)) return false
+    if (req.status === 'cancelled') return false
+    if (req.employeeId === currentUser.value?.id) return false
+    return true
   })
+  requests = requests.concat(reassignedRequests)
+
+  const reassignedIds = new Set(reassignedRequests.map(r => r.id))
+
+  const getFilteredByRole = (role) => {
+    return businessTripStore.getPendingRequests(role).filter(req => {
+      if (reassignedIds.has(req.id)) return false
+      if (req.employeeId === currentUser.value?.id) return false
+      return isOwnDeptRequest(req)
+    })
+  }
+
+  if (selectedRole.value) {
+    requests = requests.concat(getFilteredByRole(selectedRole.value))
+  } else {
+    myApprovalRoles.value.forEach(role => {
+      requests = requests.concat(getFilteredByRole(role))
+    })
+  }
+
   const uniqueRequests = Array.from(new Map(requests.map(r => [r.id, r])).values())
-  return uniqueRequests
-    .filter(req => isOwnDeptRequest(req))
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  return uniqueRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
 })
 
 const pendingCount = computed(() => {
@@ -334,6 +367,11 @@ function canApprove(request) {
 
   const nextRole = getNextApproverRole(request.status)
   if (!nextRole) return false
+
+  const reassignedApproverId = getReassignedApproverId(request)
+  if (reassignedApproverId) {
+    return reassignedApproverId === currentUser.value?.id
+  }
 
   if (!isOwnDeptRequest(request)) return false
 

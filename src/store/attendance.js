@@ -6,6 +6,7 @@ import { VACATION_TYPES } from '@/utils/vacation'
 import { useVacationStore } from '@/store/vacation'
 import { useScheduleStore } from '@/store/schedule'
 import { isBusinessTripFinalApproved, isDateInTrip } from '@/utils/business-trip'
+import { useNotificationStore, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '@/store/notification'
 
 function generateMockRecords() {
   const records = {}
@@ -956,11 +957,17 @@ export const useAttendanceStore = defineStore('attendance', {
       return { status: 'pending', lieuDays: 0 }
     },
 
-    reassignPendingApprovalsForEmployee(employeeId, oldApproverId, newApproverId, newApproverName, reason = '') {
+    reassignPendingApprovalsForEmployee(employeeId, oldApproverId, newApproverId, newApproverName, reason = '', employeeName = '') {
       const reassigned = {
         makeup: [],
         leave: [],
         overtime: []
+      }
+      let notificationStore
+      try {
+        notificationStore = useNotificationStore()
+      } catch (e) {
+        notificationStore = null
       }
 
       this.makeupRequests.forEach(req => {
@@ -976,6 +983,36 @@ export const useAttendanceStore = defineStore('attendance', {
             time: getNow()
           })
           reassigned.makeup.push(req.id)
+
+          if (notificationStore && newApproverId) {
+            notificationStore.addNotification({
+              type: NOTIFICATION_TYPES.APPROVAL_TODO,
+              category: NOTIFICATION_CATEGORIES.APPROVAL,
+              employeeId: newApproverId,
+              title: '待审核：补卡申请',
+              content: `${req.employeeName} 提交的 ${req.date} 补卡申请，审批人已变更为您，请及时审批。`,
+              date: new Date().toISOString().split('T')[0],
+              extra: {
+                applicantId: req.employeeId,
+                applicantName: req.employeeName,
+                requestType: 'makeup',
+                date: req.date,
+                requestId: req.id,
+                reassigned: true
+              },
+              actionable: true,
+              actionType: 'approve',
+              actionLabel: '去审批'
+            })
+          }
+          if (notificationStore && employeeId && oldApproverId !== newApproverId) {
+            notificationStore.generateApproverChangedNotification(
+              employeeId,
+              oldName,
+              newApproverName || '新审批人',
+              reason
+            )
+          }
         }
       })
 
@@ -992,6 +1029,36 @@ export const useAttendanceStore = defineStore('attendance', {
             time: getNow()
           })
           reassigned.leave.push(req.id)
+
+          if (notificationStore && newApproverId) {
+            notificationStore.addNotification({
+              type: NOTIFICATION_TYPES.APPROVAL_TODO,
+              category: NOTIFICATION_CATEGORIES.APPROVAL,
+              employeeId: newApproverId,
+              title: '待审核：请假申请',
+              content: `${req.employeeName} 提交的 ${req.startDate} 起请假申请，审批人已变更为您，请及时审批。`,
+              date: new Date().toISOString().split('T')[0],
+              extra: {
+                applicantId: req.employeeId,
+                applicantName: req.employeeName,
+                requestType: 'leave',
+                date: req.startDate,
+                requestId: req.id,
+                reassigned: true
+              },
+              actionable: true,
+              actionType: 'approve',
+              actionLabel: '去审批'
+            })
+          }
+          if (notificationStore && employeeId && oldApproverId !== newApproverId) {
+            notificationStore.generateApproverChangedNotification(
+              employeeId,
+              oldName,
+              newApproverName || '新审批人',
+              reason
+            )
+          }
         }
       })
 
@@ -1029,6 +1096,38 @@ export const useAttendanceStore = defineStore('attendance', {
             })
 
             reassigned.overtime.push(req.id)
+
+            if (notificationStore && newApproverId) {
+              const roleLabel = targetRole === 'supervisor' ? '直属领导' : '部门经理'
+              notificationStore.addNotification({
+                type: NOTIFICATION_TYPES.APPROVAL_TODO,
+                category: NOTIFICATION_CATEGORIES.APPROVAL,
+                employeeId: newApproverId,
+                title: '待审核：加班申请',
+                content: `${req.employeeName} 提交的 ${req.date} 加班申请，${roleLabel}已变更为您，请及时审批。`,
+                date: new Date().toISOString().split('T')[0],
+                extra: {
+                  applicantId: req.employeeId,
+                  applicantName: req.employeeName,
+                  requestType: 'overtime',
+                  date: req.date,
+                  requestId: req.id,
+                  reassigned: true,
+                  role: targetRole
+                },
+                actionable: true,
+                actionType: 'approve',
+                actionLabel: '去审批'
+              })
+            }
+            if (notificationStore && employeeId && oldApproverId !== newApproverId) {
+              notificationStore.generateApproverChangedNotification(
+                employeeId,
+                oldApprover,
+                newApprover,
+                reason
+              )
+            }
           }
         }
       })

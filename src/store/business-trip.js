@@ -26,6 +26,7 @@ import {
   getTripDates,
   isDateInTrip
 } from '@/utils/business-trip'
+import { useNotificationStore, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '@/store/notification'
 
 export const useBusinessTripStore = defineStore('businessTrip', {
   state: () => ({
@@ -441,8 +442,14 @@ export const useBusinessTripStore = defineStore('businessTrip', {
       return allUpdated
     },
 
-    reassignPendingApprovalsForEmployee(employeeId, oldApproverId, newApproverId, newApproverName, reason = '') {
+    reassignPendingApprovalsForEmployee(employeeId, oldApproverId, newApproverId, newApproverName, reason = '', employeeName = '') {
       const reassigned = []
+      let notificationStore
+      try {
+        notificationStore = useNotificationStore()
+      } catch (e) {
+        notificationStore = null
+      }
 
       this.requests.forEach(req => {
         if (req.employeeId !== employeeId) return
@@ -487,6 +494,38 @@ export const useBusinessTripStore = defineStore('businessTrip', {
           })
 
           reassigned.push(req.id)
+
+          if (notificationStore && newApproverId) {
+            const roleLabel = targetRole === 'supervisor' ? '直属领导' : '部门经理'
+            notificationStore.addNotification({
+              type: NOTIFICATION_TYPES.APPROVAL_TODO,
+              category: NOTIFICATION_CATEGORIES.APPROVAL,
+              employeeId: newApproverId,
+              title: '待审核：出差申请',
+              content: `${req.employeeName} 提交的 ${req.startDate} 起出差申请，${roleLabel}已变更为您，请及时审批。`,
+              date: new Date().toISOString().split('T')[0],
+              extra: {
+                applicantId: req.employeeId,
+                applicantName: req.employeeName,
+                requestType: 'businessTrip',
+                date: req.startDate,
+                requestId: req.id,
+                reassigned: true,
+                role: targetRole
+              },
+              actionable: true,
+              actionType: 'approve',
+              actionLabel: '去审批'
+            })
+          }
+          if (notificationStore && employeeId && oldApproverId !== newApproverId) {
+            notificationStore.generateApproverChangedNotification(
+              employeeId,
+              oldApprover,
+              newApprover,
+              reason
+            )
+          }
         }
       })
 

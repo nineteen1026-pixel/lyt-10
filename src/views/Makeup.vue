@@ -161,7 +161,7 @@
           </div>
           <div class="request-footer">
             <span class="request-submit-time">提交时间：{{ request.createdAt }}</span>
-            <div class="request-actions" v-if="request.status === 'pending' && isAdmin && isOwnDeptRequest(request)">
+            <div class="request-actions" v-if="request.status === 'pending' && isAdmin && (isOwnDeptRequest(request) || isReassignedToMe(request))">
               <button class="action-btn approve" @click="approveRequest(request.id)">
                 通过
               </button>
@@ -218,6 +218,23 @@ const isOwnDeptRequest = (req) => {
   if (isHr.value) return true
   if (myManagedDeptIds.value.length === 0) return false
   return myManagedDeptIds.value.includes(req.departmentId) || req.departmentId === undefined
+}
+
+const isReassignedToMe = (req) => {
+  if (!currentUser.value) return false
+  if (req.approverId === currentUser.value.id) return true
+  if (req.reassignHistory && req.reassignHistory.length > 0) {
+    const latest = req.reassignHistory[req.reassignHistory.length - 1]
+    return latest.to === currentUser.value.id
+  }
+  return false
+}
+
+const getReassignedApproverId = (req) => {
+  if (req.approverId) return req.approverId
+  if (!req.reassignHistory || req.reassignHistory.length === 0) return null
+  const latest = req.reassignHistory[req.reassignHistory.length - 1]
+  return latest.to || null
 }
 
 const isAdmin = computed(() => {
@@ -320,7 +337,13 @@ const myRequests = computed(() => {
     if (applicantIdFromQuery && typeof applicantIdFromQuery === 'string') {
       allRequests = allRequests.filter(r => r.employeeId === applicantIdFromQuery)
     }
-    return allRequests.filter(r => isOwnDeptRequest(r))
+    return allRequests.filter(r => {
+      const reassignedApproverId = getReassignedApproverId(r)
+      if (reassignedApproverId) {
+        return reassignedApproverId === currentUser.value.id
+      }
+      return isOwnDeptRequest(r)
+    })
   }
   return attendanceStore.getEmployeeMakeupRequests(currentUser.value.id)
 })
