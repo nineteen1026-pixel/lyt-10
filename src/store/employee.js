@@ -3,6 +3,7 @@ import { employees as mockEmployees } from '@/data/employees'
 import { getEmployees, setEmployees, getCurrentUser, setCurrentUser } from '@/utils/storage'
 import { useScheduleStore } from '@/store/schedule'
 import { useAttendanceStore } from '@/store/attendance'
+import { useBusinessTripStore } from '@/store/business-trip'
 import { useNotificationStore } from '@/store/notification'
 import { useOrganizationStore } from '@/store/organization'
 
@@ -148,6 +149,7 @@ export const useEmployeeStore = defineStore('employee', {
 
       const scheduleStore = useScheduleStore()
       const attendanceStore = useAttendanceStore()
+      const businessTripStore = useBusinessTripStore()
       const notificationStore = useNotificationStore()
 
       const toDept = organizationStore.getDepartmentById(transferData.toDepartmentId)
@@ -203,6 +205,13 @@ export const useEmployeeStore = defineStore('employee', {
           newDeptName
         )
 
+        businessTripStore.updateRequestsDepartment(
+          employeeId,
+          oldDeptId,
+          newDeptId,
+          newDeptName
+        )
+
         const oldDept = organizationStore.getDepartmentById(oldDeptId)
         const oldManagerId = oldDept?.managerId
         const oldManager = oldManagerId ? this.getEmployeeById(oldManagerId) : null
@@ -212,6 +221,14 @@ export const useEmployeeStore = defineStore('employee', {
 
         if (newManagerId && oldManagerId !== newManagerId) {
           attendanceStore.reassignPendingApprovalsForEmployee(
+            employeeId,
+            oldManagerId,
+            newManagerId,
+            newManager?.name || '新审批人',
+            transferData.transferType
+          )
+
+          businessTripStore.reassignPendingApprovalsForEmployee(
             employeeId,
             oldManagerId,
             newManagerId,

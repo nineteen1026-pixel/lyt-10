@@ -1036,10 +1036,13 @@ export const useAttendanceStore = defineStore('attendance', {
       const updated = []
 
       this.overtimeRequests.forEach(req => {
-        if (req.employeeId === employeeId && req.departmentId === oldDepartmentId) {
-          req.departmentId = newDepartmentId
-          req.department = newDepartmentName
-          updated.push(req.id)
+        if (req.employeeId === employeeId) {
+          const allOldIds = Array.isArray(oldDepartmentId) ? oldDepartmentId : [oldDepartmentId]
+          if (allOldIds.includes(req.departmentId) || oldDepartmentId === null) {
+            req.departmentId = newDepartmentId
+            req.department = newDepartmentName
+            updated.push(req.id)
+          }
         }
       })
 
@@ -1050,7 +1053,7 @@ export const useAttendanceStore = defineStore('attendance', {
     batchUpdateRequestsDepartment(employeeIds, oldDepartmentId, newDepartmentId, newDepartmentName) {
       const allUpdated = []
       employeeIds.forEach(empId => {
-        const updated = this.updateRequestsDepartment(empId, oldDepartmentId, newDepartmentId, newDepartmentName)
+        const updated = this.updateRequestsDepartment(empId, null, newDepartmentId, newDepartmentName)
         allUpdated.push(...updated)
       })
       return allUpdated

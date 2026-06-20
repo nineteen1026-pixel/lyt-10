@@ -13,6 +13,7 @@ import {
 import { useEmployeeStore } from '@/store/employee'
 import { useScheduleStore } from '@/store/schedule'
 import { useAttendanceStore } from '@/store/attendance'
+import { useBusinessTripStore } from '@/store/business-trip'
 import { useNotificationStore } from '@/store/notification'
 
 export const useOrganizationStore = defineStore('organization', {
@@ -261,6 +262,7 @@ export const useOrganizationStore = defineStore('organization', {
       const employeeStore = useEmployeeStore()
       const scheduleStore = useScheduleStore()
       const attendanceStore = useAttendanceStore()
+      const businessTripStore = useBusinessTripStore()
       const notificationStore = useNotificationStore()
 
       const sourceDept = this.getDepartmentById(sourceDeptId)
@@ -304,6 +306,13 @@ export const useOrganizationStore = defineStore('organization', {
         targetDept.name
       )
 
+      businessTripStore.batchUpdateRequestsDepartment(
+        employeeIds,
+        sourceDeptId,
+        targetDeptId,
+        targetDept.name
+      )
+
       const targetManagerId = targetDept.managerId
       const targetManager = targetManagerId ? employeeStore.getEmployeeById(targetManagerId) : null
 
@@ -312,6 +321,15 @@ export const useOrganizationStore = defineStore('organization', {
         const sourceManager = sourceManagerId ? employeeStore.getEmployeeById(sourceManagerId) : null
 
         attendanceStore.reassignDepartmentPendingApprovals(
+          sourceDeptId,
+          sourceManagerId,
+          targetManagerId,
+          targetManager.name,
+          employeeIds,
+          reason
+        )
+
+        businessTripStore.reassignDepartmentPendingApprovals(
           sourceDeptId,
           sourceManagerId,
           targetManagerId,
@@ -451,6 +469,7 @@ export const useOrganizationStore = defineStore('organization', {
     updateDepartmentManager(deptId, newManagerId, reason = '部门负责人变更') {
       const employeeStore = useEmployeeStore()
       const attendanceStore = useAttendanceStore()
+      const businessTripStore = useBusinessTripStore()
       const notificationStore = useNotificationStore()
 
       const dept = this.getDepartmentById(deptId)
@@ -481,6 +500,15 @@ export const useOrganizationStore = defineStore('organization', {
         const employeeIds = affectedEmployees.map(e => e.id)
 
         attendanceStore.reassignDepartmentPendingApprovals(
+          deptId,
+          oldManagerId,
+          newManagerId,
+          newManager.name,
+          employeeIds,
+          reason
+        )
+
+        businessTripStore.reassignDepartmentPendingApprovals(
           deptId,
           oldManagerId,
           newManagerId,

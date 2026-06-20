@@ -411,6 +411,85 @@ export const useBusinessTripStore = defineStore('businessTrip', {
         isBusinessTripFinalApproved(r.status) &&
         isDateInTrip(date, r.startDate, r.endDate)
       )
+    },
+
+    updateRequestsDepartment(employeeId, oldDepartmentId, newDepartmentId, newDepartmentName) {
+      const updated = []
+
+      this.requests.forEach(req => {
+        if (req.employeeId === employeeId) {
+          const allOldIds = Array.isArray(oldDepartmentId) ? oldDepartmentId : [oldDepartmentId]
+          if (allOldIds.includes(req.departmentId) || oldDepartmentId === null) {
+            req.department = newDepartmentName
+            updated.push(req.id)
+          }
+        }
+      })
+
+      this.saveRequestsToStorage()
+      return updated
+    },
+
+    batchUpdateRequestsDepartment(employeeIds, oldDepartmentId, newDepartmentId, newDepartmentName) {
+      const allUpdated = []
+      employeeIds.forEach(empId => {
+        const updated = this.updateRequestsDepartment(empId, null, newDepartmentId, newDepartmentName)
+        allUpdated.push(...updated)
+      })
+      return allUpdated
+    },
+
+    reassignPendingApprovalsForEmployee(employeeId, oldApproverId, newApproverId, newApproverName, reason = '') {
+      const reassigned = []
+
+      this.requests.forEach(req => {
+        if (req.employeeId !== employeeId) return
+        if (isBusinessTripRejected(req.status)) return
+        if (isBusinessTripFinalApproved(req.status)) return
+        if (req.status === BUSINESS_TRIP_STATUS.CANCELLED) return
+
+        const supervisorApproved = req.approvalHistory?.some(
+          h => h.role === 'supervisor' && h.action === 'approve'
+        )
+        const managerApproved = req.approvalHistory?.some(
+          h => h.role === 'manager' && h.action === 'approve'
+        )
+
+        let targetRole = null
+        if (!supervisorApproved && req.status === BUSINESS_TRIP_STATUS.PENDING_SUPERVISOR) {
+          targetRole = 'supervisor'
+        } else if (supervisorApproved && !managerApproved &&
+          (req.status === BUSINESS_TRIP_STATUS.PENDING_MANAGER ||
+           req.status === BUSINESS_TRIP_STATUS.APPROVED_SUPERVISOR)) {
+          targetRole = 'manager'
+        }
+
+        if (targetRole) {
+          if (!req.reassignHistory) req.reassignHistory = []
+          req.reassignHistory.push({
+            from: oldApproverId,
+            to: newApproverId,
+            role: targetRole,
+            reason,
+            time: getNow()
+          })
+          reassigned.push(req.id)
+        }
+      })
+
+      this.saveRequestsToStorage()
+      return reassigned
+    },
+
+    reassignDepartmentPendingApprovals(departmentId, oldApproverId, newApproverId, newApproverName, employeeIds, reason = '') {
+      const reassigned = []
+      employeeIds.forEach(empId => {
+        const result = this.reassignPendingApprovalsForEmployee(
+          empId, oldApproverId, newApproverId, newApproverName, reason
+        )
+        reassigned.push(...result)
+      })
+      return reassigned
     }
   }
 })
