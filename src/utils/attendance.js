@@ -377,7 +377,6 @@ export function calculateAttendanceStats(records, year, month) {
         break
       case ATTENDANCE_STATUS.BUSINESS_TRIP:
         stats.businessTrip++
-        stats.normal++
         break
       case ATTENDANCE_STATUS.OVERTIME:
         stats.normal++
@@ -549,7 +548,6 @@ export function calculateAttendanceStatsWithShift(records, year, month, shiftMap
         break
       case ATTENDANCE_STATUS.BUSINESS_TRIP:
         stats.businessTrip++
-        stats.normal++
         break
       case ATTENDANCE_STATUS.OVERTIME:
         stats.normal++

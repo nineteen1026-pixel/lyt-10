@@ -39,8 +39,8 @@
       <h4 class="card-title">{{ selectedEmployee?.name }} - 本月考勤统计</h4>
       <div class="stats-grid">
         <div class="stat-item">
-          <div class="stat-value" style="color: #52c41a">{{ monthStats.normal }}</div>
-          <div class="stat-label">正常</div>
+          <div class="stat-value" style="color: #52c41a">{{ monthStats.normal + (monthStats.businessTrip || 0) }}</div>
+          <div class="stat-label">正常出勤</div>
         </div>
         <div class="stat-item">
           <div class="stat-value" style="color: #fa8c16">{{ monthStats.late }}</div>

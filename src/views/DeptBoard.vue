@@ -49,8 +49,8 @@
           <div class="stat-label">应出勤(人次)</div>
         </div>
         <div class="stat-item">
-          <div class="stat-value" style="color: #52c41a">{{ deptStats.normal }}</div>
-          <div class="stat-label">正常</div>
+          <div class="stat-value" style="color: #52c41a">{{ deptStats.normal + (deptStats.businessTrip || 0) }}</div>
+          <div class="stat-label">正常出勤</div>
         </div>
         <div class="stat-item">
           <div class="stat-value" style="color: #fa8c16">{{ deptStats.late }}</div>
@@ -283,7 +283,7 @@ const deptStats = computed(() => {
 
 const attendanceRate = computed(() => {
   if (deptStats.value.total === 0) return 0
-  return Math.round((deptStats.value.normal / deptStats.value.total) * 100)
+  return Math.round(((deptStats.value.normal + (deptStats.value.businessTrip || 0)) / deptStats.value.total) * 100)
 })
 
 const trendData = computed(() => {
