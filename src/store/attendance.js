@@ -950,6 +950,110 @@ export const useAttendanceStore = defineStore('attendance', {
       }
 
       return { status: 'pending', lieuDays: 0 }
+    },
+
+    reassignPendingApprovalsForEmployee(employeeId, oldApproverId, newApproverId, newApproverName, reason = '') {
+      const reassigned = {
+        makeup: [],
+        leave: [],
+        overtime: []
+      }
+
+      this.makeupRequests.forEach(req => {
+        if (req.employeeId === employeeId && req.status === 'pending') {
+          req.approverId = newApproverId
+          req.approverName = newApproverName
+          if (!req.reassignHistory) req.reassignHistory = []
+          req.reassignHistory.push({
+            from: oldApproverId,
+            to: newApproverId,
+            reason,
+            time: getNow()
+          })
+          reassigned.makeup.push(req.id)
+        }
+      })
+
+      this.leaveRequests.forEach(req => {
+        if (req.employeeId === employeeId && req.status === 'pending') {
+          req.approverId = newApproverId
+          req.approverName = newApproverName
+          if (!req.reassignHistory) req.reassignHistory = []
+          req.reassignHistory.push({
+            from: oldApproverId,
+            to: newApproverId,
+            reason,
+            time: getNow()
+          })
+          reassigned.leave.push(req.id)
+        }
+      })
+
+      this.overtimeRequests.forEach(req => {
+        if (req.employeeId === employeeId && !isOvertimeFinalApproved(req.status) && !isOvertimeRejected(req.status)) {
+          const supervisorApproved = req.approvalHistory?.some(h => h.role === 'supervisor' && h.action === 'approve')
+          if (!supervisorApproved && req.status === OVERTIME_STATUS.PENDING_SUPERVISOR) {
+            if (!req.reassignHistory) req.reassignHistory = []
+            req.reassignHistory.push({
+              from: oldApproverId,
+              to: newApproverId,
+              role: 'supervisor',
+              reason,
+              time: getNow()
+            })
+            reassigned.overtime.push(req.id)
+          }
+        }
+      })
+
+      this.saveMakeupRequestsToStorage()
+      this.saveLeaveRequestsToStorage()
+      this.saveOvertimeRequestsToStorage()
+
+      return reassigned
+    },
+
+    reassignDepartmentPendingApprovals(departmentId, oldApproverId, newApproverId, newApproverName, employeeIds, reason = '') {
+      const reassigned = {
+        makeup: [],
+        leave: [],
+        overtime: []
+      }
+
+      employeeIds.forEach(empId => {
+        const result = this.reassignPendingApprovalsForEmployee(
+          empId, oldApproverId, newApproverId, newApproverName, reason
+        )
+        reassigned.makeup.push(...result.makeup)
+        reassigned.leave.push(...result.leave)
+        reassigned.overtime.push(...result.overtime)
+      })
+
+      return reassigned
+    },
+
+    updateRequestsDepartment(employeeId, oldDepartmentId, newDepartmentId, newDepartmentName) {
+      const updated = []
+
+      this.overtimeRequests.forEach(req => {
+        if (req.employeeId === employeeId && req.departmentId === oldDepartmentId) {
+          req.departmentId = newDepartmentId
+          req.department = newDepartmentName
+          updated.push(req.id)
+        }
+      })
+
+      this.saveOvertimeRequestsToStorage()
+      return updated
+    },
+
+    batchUpdateRequestsDepartment(employeeIds, oldDepartmentId, newDepartmentId, newDepartmentName) {
+      const allUpdated = []
+      employeeIds.forEach(empId => {
+        const updated = this.updateRequestsDepartment(empId, oldDepartmentId, newDepartmentId, newDepartmentName)
+        allUpdated.push(...updated)
+      })
+      return allUpdated
     }
   }
 })

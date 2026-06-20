@@ -187,6 +187,95 @@ export const useScheduleStore = defineStore('schedule', {
       request.reviewedAt = getNow()
       this.saveSwapRequestsToStorage()
       this.showToast('换班申请已拒绝', 'warning')
+    },
+
+    migrateEmployeeSchedule(employeeId, oldDepartmentId, newDepartmentId, newDepartmentName, year = null, month = null) {
+      const newTemplateData = this.shiftTemplates[newDepartmentId]
+      const migratedMonths = []
+
+      const targetYear = year || new Date().getFullYear()
+      const targetMonth = month || new Date().getMonth() + 1
+
+      const monthsToMigrate = []
+      if (year && month) {
+        monthsToMigrate.push({ year, month })
+      } else {
+        const currentMonth = new Date().getMonth() + 1
+        for (let m = currentMonth; m <= 12; m++) {
+          monthsToMigrate.push({ year: targetYear, month: m })
+        }
+      }
+
+      if (newTemplateData) {
+        monthsToMigrate.forEach(({ year: y, month: m }) => {
+          const key = `${y}-${String(m).padStart(2, '0')}`
+          if (!this.monthSchedules[key]) {
+            this.monthSchedules[key] = {}
+          }
+
+          const newSchedule = generateMonthScheduleFromTemplate(
+            newTemplateData.template,
+            y,
+            m,
+            [employeeId]
+          )
+
+          if (newSchedule[employeeId]) {
+            if (!this.monthSchedules[key][employeeId]) {
+              this.monthSchedules[key][employeeId] = {}
+            }
+            Object.assign(this.monthSchedules[key][employeeId], newSchedule[employeeId])
+            migratedMonths.push(`${y}年${m}月`)
+          }
+        })
+      }
+
+      this.saveSchedulesToStorage()
+      return {
+        employeeId,
+        oldDepartmentId,
+        newDepartmentId,
+        migratedMonths
+      }
+    },
+
+    batchMigrateSchedules(employeeIds, oldDepartmentId, newDepartmentId, newDepartmentName) {
+      const results = []
+      employeeIds.forEach(empId => {
+        const result = this.migrateEmployeeSchedule(
+          empId,
+          oldDepartmentId,
+          newDepartmentId,
+          newDepartmentName
+        )
+        results.push(result)
+      })
+      return results
+    },
+
+    clearDepartmentTemplates(departmentIds) {
+      departmentIds.forEach(deptId => {
+        if (this.shiftTemplates[deptId]) {
+          delete this.shiftTemplates[deptId]
+        }
+      })
+      this.saveTemplatesToStorage()
+    },
+
+    mergeDepartmentTemplates(sourceDeptId, targetDeptId, targetDeptName) {
+      const sourceTemplate = this.shiftTemplates[sourceDeptId]
+      const targetTemplate = this.shiftTemplates[targetDeptId]
+
+      if (sourceTemplate && !targetTemplate) {
+        this.shiftTemplates[targetDeptId] = {
+          ...sourceTemplate,
+          departmentId: targetDeptId,
+          departmentName: targetDeptName,
+          updatedAt: getNow()
+        }
+        this.saveTemplatesToStorage()
+      }
+      return this.shiftTemplates[targetDeptId] || null
     }
   }
 })

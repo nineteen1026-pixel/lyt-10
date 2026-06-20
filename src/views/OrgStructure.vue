@@ -244,22 +244,63 @@
 
     <Transition name="modal">
       <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false">
-        <div class="modal modal-sm">
+        <div class="modal">
           <div class="modal-header">
-            <h3 class="modal-title">⚠️ 确认删除</h3>
+            <h3 class="modal-title">⚠️ 删除部门 / 人员迁移</h3>
+            <button class="modal-close" @click="showDeleteConfirm = false">✕</button>
           </div>
           <div class="modal-body">
             <p>确定要删除部门「<strong>{{ deleteTarget?.name }}</strong>」吗？</p>
             <p v-if="childCountForDelete > 0" class="warning-text">
               ⚠️ 该部门下还有 {{ childCountForDelete }} 个子部门，将一并删除！
             </p>
-            <p v-if="getDeptEmployeeCount(deleteTarget?.id) > 0" class="warning-text">
-              ⚠️ 该部门下还有 {{ getDeptEmployeeCount(deleteTarget?.id) }} 名员工，删除后员工部门将被清空！
+            <p v-if="affectedEmployeeCount > 0" class="warning-text">
+              ⚠️ 该部门及子部门下共有 {{ affectedEmployeeCount }} 名员工。
             </p>
+
+            <div v-if="affectedEmployeeCount > 0" class="form-group" style="margin-top: 16px;">
+              <label class="form-label">员工迁移方案</label>
+              <div class="radio-group">
+                <label class="radio-item">
+                  <input v-model="deleteOption" type="radio" value="migrate" />
+                  <span>迁移至其他部门（推荐）</span>
+                </label>
+                <label class="radio-item">
+                  <input v-model="deleteOption" type="radio" value="unassign" />
+                  <span>标记为"未分配"</span>
+                </label>
+              </div>
+            </div>
+
+            <div v-if="deleteOption === 'migrate' && affectedEmployeeCount > 0" class="form-group">
+              <label class="form-label required">选择目标部门</label>
+              <select v-model="migrateTargetDeptId" class="form-select">
+                <option :value="null">请选择目标部门</option>
+                <option
+                  v-for="dept in availableDeptsForMigration"
+                  :key="dept.id"
+                  :value="dept.id"
+                >
+                  {{ '　'.repeat(getDeptLevel(dept.id)) }}{{ dept.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">调整原因</label>
+              <input
+                v-model="deleteReason"
+                type="text"
+                class="form-input"
+                placeholder="如：组织架构调整、部门合并等"
+              />
+            </div>
           </div>
           <div class="modal-footer">
             <button class="btn btn-ghost" @click="showDeleteConfirm = false">取消</button>
-            <button class="btn btn-danger" @click="doDelete">确认删除</button>
+            <button class="btn btn-danger" @click="doDelete">
+              {{ deleteOption === 'migrate' ? '删除并迁移' : '确认删除' }}
+            </button>
           </div>
         </div>
       </div>
@@ -284,6 +325,10 @@ const showDeleteConfirm = ref(false)
 const isEdit = ref(false)
 const parentDept = ref(null)
 const deleteTarget = ref(null)
+const deleteOption = ref('migrate')
+const migrateTargetDeptId = ref(null)
+const deleteReason = ref('')
+const originalManagerId = ref(null)
 
 const formData = reactive({
   name: '',
@@ -348,6 +393,26 @@ const childCountForDelete = computed(() => {
   return organizationStore.getAllDescendantIds(deleteTarget.value.id).length
 })
 
+const affectedEmployeeCount = computed(() => {
+  if (!deleteTarget.value?.id) return 0
+  const allIds = [deleteTarget.value.id, ...organizationStore.getAllDescendantIds(deleteTarget.value.id)]
+  let count = 0
+  allIds.forEach(id => {
+    count += employeeStore.getEmployeesByDepartment(id).length
+  })
+  return count
+})
+
+const availableDeptsForMigration = computed(() => {
+  if (!deleteTarget.value?.id) return []
+  const excludeIds = new Set([deleteTarget.value.id, ...organizationStore.getAllDescendantIds(deleteTarget.value.id)])
+  return organizationStore.flatDepartments.filter(d => !excludeIds.has(d.id))
+})
+
+function getDeptLevel(deptId) {
+  return organizationStore.getDepartmentPath(deptId).length - 1
+}
+
 function getDeptEmployeeCount(deptId) {
   if (!deptId) return 0
   return employeeStore.getEmployeesByDepartment(deptId).length
@@ -384,6 +449,7 @@ function openAddModal(parentId) {
 function openEditModal(dept) {
   isEdit.value = true
   parentDept.value = dept.parentId ? organizationStore.getDepartmentById(dept.parentId) : null
+  originalManagerId.value = dept.managerId || null
   Object.assign(formData, {
     name: dept.name || '',
     code: dept.code || '',
@@ -404,12 +470,26 @@ function submitForm() {
     return
   }
   if (isEdit.value) {
-    organizationStore.updateDepartment(formData._editId, {
+    const deptId = formData._editId
+    organizationStore.updateDepartment(deptId, {
       name: formData.name.trim(),
       code: formData.code.trim(),
       managerId: formData.managerId,
       description: formData.description.trim()
     })
+
+    if (originalManagerId.value !== formData.managerId) {
+      const result = organizationStore.updateDepartmentManager(
+        deptId,
+        formData.managerId,
+        '部门负责人调整'
+      )
+      if (result.success && result.affectedCount > 0) {
+        setTimeout(() => {
+          alert(result.message)
+        }, 100)
+      }
+    }
   } else {
     const newDept = organizationStore.addDepartment({
       name: formData.name.trim(),
@@ -424,20 +504,44 @@ function submitForm() {
 
 function confirmDelete(dept) {
   deleteTarget.value = dept
+  deleteOption.value = 'migrate'
+  migrateTargetDeptId.value = null
+  deleteReason.value = ''
   showDeleteConfirm.value = true
 }
 
 function doDelete() {
   if (!deleteTarget.value) return
   const deptId = deleteTarget.value.id
-  const allIds = [deptId, ...organizationStore.getAllDescendantIds(deptId)]
-  allIds.forEach(id => {
-    const emps = employeeStore.getEmployeesByDepartment(id)
-    emps.forEach(emp => {
-      employeeStore.updateEmployee(emp.id, { departmentId: null, department: '未分配' })
-    })
-  })
-  organizationStore.removeDepartment(deptId)
+
+  if (deleteOption.value === 'migrate' && affectedEmployeeCount.value > 0) {
+    if (!migrateTargetDeptId.value) {
+      alert('请选择目标迁移部门')
+      return
+    }
+    const result = organizationStore.mergeDepartment(
+      deptId,
+      migrateTargetDeptId.value,
+      deleteReason.value || '组织架构调整'
+    )
+    if (result.success) {
+      setTimeout(() => {
+        alert(result.message)
+      }, 100)
+    }
+  } else {
+    const result = organizationStore.deleteDepartmentWithMigration(
+      deptId,
+      null,
+      deleteReason.value || '部门撤销'
+    )
+    if (result.success) {
+      setTimeout(() => {
+        alert(result.message)
+      }, 100)
+    }
+  }
+
   if (selectedDeptId.value === deptId) {
     selectedDeptId.value = null
   }
@@ -1209,6 +1313,35 @@ export default {
   margin-top: 8px;
   color: var(--warning-color);
   font-size: 13px;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.radio-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: all 0.2s;
+  font-size: 13px;
+}
+
+.radio-item:hover {
+  border-color: var(--primary-color);
+  background: #f8faff;
+}
+
+.radio-item input[type="radio"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
 }
 
 .modal-enter-active,

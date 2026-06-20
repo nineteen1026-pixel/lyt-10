@@ -1,8 +1,8 @@
 <template>
   <div class="notification-center">
     <div class="page-header">
-      <h2 class="page-title">考勤异常推送中心</h2>
-      <p class="page-subtitle">集中查看考勤异常、待办事项与审批消息</p>
+      <h2 class="page-title">消息通知中心</h2>
+      <p class="page-subtitle">集中查看考勤异常、待办事项、审批消息与组织调整通知</p>
     </div>
 
     <div class="stats-row">
@@ -41,6 +41,7 @@
               <option value="leave">请假</option>
               <option value="overtime">加班</option>
               <option value="approval">待审核</option>
+              <option value="org">组织调整</option>
             </select>
           </div>
           <div class="filter-item">
@@ -201,15 +202,16 @@ const NOTIFY_TYPE_TO_TYPES = {
   makeup: [NOTIFICATION_TYPES.MAKEUP_PENDING, NOTIFICATION_TYPES.MAKEUP_APPROVED, NOTIFICATION_TYPES.MAKEUP_REJECTED],
   leave: [NOTIFICATION_TYPES.LEAVE_PENDING, NOTIFICATION_TYPES.LEAVE_APPROVED, NOTIFICATION_TYPES.LEAVE_REJECTED],
   overtime: [NOTIFICATION_TYPES.OVERTIME_PENDING, NOTIFICATION_TYPES.OVERTIME_APPROVED, NOTIFICATION_TYPES.OVERTIME_REJECTED],
-  approval: [NOTIFICATION_TYPES.APPROVAL_TODO]
+  approval: [NOTIFICATION_TYPES.APPROVAL_TODO],
+  org: [NOTIFICATION_TYPES.DEPT_TRANSFER, NOTIFICATION_TYPES.EMPLOYEE_TRANSFER, NOTIFICATION_TYPES.APPROVER_CHANGED, NOTIFICATION_TYPES.SCHEDULE_MIGRATED]
 }
 
 const categoryList = [
   { key: '', label: '全部', icon: '📬', bgColor: 'linear-gradient(135deg, #667eea, #764ba2)' },
   { key: NOTIFICATION_CATEGORIES.ABNORMAL, label: '异常提醒', icon: '⚠️', bgColor: 'linear-gradient(135deg, #fa8c16, #f5222d)' },
   { key: NOTIFICATION_CATEGORIES.PENDING, label: '我的待办', icon: '⏳', bgColor: 'linear-gradient(135deg, #faad14, #fa8c16)' },
-  { key: NOTIFICATION_CATEGORIES.APPROVAL, label: '待我审核', icon: '📝', bgColor: 'linear-gradient(135deg, #1890ff, #096dd9)' },
-  { key: NOTIFICATION_CATEGORIES.RESULT, label: '审批结果', icon: '📋', bgColor: 'linear-gradient(135deg, #52c41a, #389e0d)' }
+  { key: NOTIFICATION_CATEGORIES.APPROVAL, label: '待我审核', icon: '📝', bgColor: 'linear-gradient(135deg, #52c41a, #389e0d)' },
+  { key: NOTIFICATION_CATEGORIES.ORG, label: '组织调整', icon: '🏢', bgColor: 'linear-gradient(135deg, #722ed1, #eb2f96)' }
 ]
 
 const currentUser = computed(() => employeeStore.currentUser)
@@ -364,6 +366,8 @@ function handleAction(notification) {
     } else if (notification.extra?.requestType === 'overtime') {
       router.push({ path: '/overtime', query })
     }
+  } else if (notification.actionType === 'view_schedule') {
+    router.push({ path: '/schedule' })
   }
 }
 
@@ -427,7 +431,7 @@ onMounted(() => {
 
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 16px;
 }
 
@@ -865,6 +869,12 @@ onMounted(() => {
   font-size: 13px;
   color: #bfbfbf;
   margin: 0;
+}
+
+@media (max-width: 900px) {
+  .stats-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 @media (max-width: 768px) {

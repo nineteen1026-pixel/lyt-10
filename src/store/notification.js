@@ -15,7 +15,11 @@ export const NOTIFICATION_TYPES = {
   LEAVE_REJECTED: 'leave_rejected',
   OVERTIME_APPROVED: 'overtime_approved',
   OVERTIME_REJECTED: 'overtime_rejected',
-  APPROVAL_TODO: 'approval_todo'
+  APPROVAL_TODO: 'approval_todo',
+  DEPT_TRANSFER: 'dept_transfer',
+  EMPLOYEE_TRANSFER: 'employee_transfer',
+  APPROVER_CHANGED: 'approver_changed',
+  SCHEDULE_MIGRATED: 'schedule_migrated'
 }
 
 export const NOTIFICATION_TYPE_LABELS = {
@@ -30,7 +34,11 @@ export const NOTIFICATION_TYPE_LABELS = {
   [NOTIFICATION_TYPES.LEAVE_REJECTED]: '请假已拒绝',
   [NOTIFICATION_TYPES.OVERTIME_APPROVED]: '加班已通过',
   [NOTIFICATION_TYPES.OVERTIME_REJECTED]: '加班已拒绝',
-  [NOTIFICATION_TYPES.APPROVAL_TODO]: '待我审核'
+  [NOTIFICATION_TYPES.APPROVAL_TODO]: '待我审核',
+  [NOTIFICATION_TYPES.DEPT_TRANSFER]: '部门调整通知',
+  [NOTIFICATION_TYPES.EMPLOYEE_TRANSFER]: '员工调动通知',
+  [NOTIFICATION_TYPES.APPROVER_CHANGED]: '审批人变更通知',
+  [NOTIFICATION_TYPES.SCHEDULE_MIGRATED]: '排班迁移通知'
 }
 
 export const NOTIFICATION_TYPE_ICONS = {
@@ -45,7 +53,11 @@ export const NOTIFICATION_TYPE_ICONS = {
   [NOTIFICATION_TYPES.LEAVE_REJECTED]: '❌',
   [NOTIFICATION_TYPES.OVERTIME_APPROVED]: '✅',
   [NOTIFICATION_TYPES.OVERTIME_REJECTED]: '❌',
-  [NOTIFICATION_TYPES.APPROVAL_TODO]: '📝'
+  [NOTIFICATION_TYPES.APPROVAL_TODO]: '📝',
+  [NOTIFICATION_TYPES.DEPT_TRANSFER]: '🏢',
+  [NOTIFICATION_TYPES.EMPLOYEE_TRANSFER]: '👤',
+  [NOTIFICATION_TYPES.APPROVER_CHANGED]: '🔄',
+  [NOTIFICATION_TYPES.SCHEDULE_MIGRATED]: '📅'
 }
 
 export const NOTIFICATION_TYPE_COLORS = {
@@ -60,21 +72,27 @@ export const NOTIFICATION_TYPE_COLORS = {
   [NOTIFICATION_TYPES.LEAVE_REJECTED]: '#f5222d',
   [NOTIFICATION_TYPES.OVERTIME_APPROVED]: '#52c41a',
   [NOTIFICATION_TYPES.OVERTIME_REJECTED]: '#f5222d',
-  [NOTIFICATION_TYPES.APPROVAL_TODO]: '#1890ff'
+  [NOTIFICATION_TYPES.APPROVAL_TODO]: '#1890ff',
+  [NOTIFICATION_TYPES.DEPT_TRANSFER]: '#722ed1',
+  [NOTIFICATION_TYPES.EMPLOYEE_TRANSFER]: '#13c2c2',
+  [NOTIFICATION_TYPES.APPROVER_CHANGED]: '#eb2f96',
+  [NOTIFICATION_TYPES.SCHEDULE_MIGRATED]: '#2f54eb'
 }
 
 export const NOTIFICATION_CATEGORIES = {
   ABNORMAL: 'abnormal',
   PENDING: 'pending',
   APPROVAL: 'approval',
-  RESULT: 'result'
+  RESULT: 'result',
+  ORG: 'org'
 }
 
 export const NOTIFICATION_CATEGORY_LABELS = {
   [NOTIFICATION_CATEGORIES.ABNORMAL]: '异常提醒',
   [NOTIFICATION_CATEGORIES.PENDING]: '我的待办',
   [NOTIFICATION_CATEGORIES.APPROVAL]: '待我审核',
-  [NOTIFICATION_CATEGORIES.RESULT]: '审批结果'
+  [NOTIFICATION_CATEGORIES.RESULT]: '审批结果',
+  [NOTIFICATION_CATEGORIES.ORG]: '组织调整'
 }
 
 const TYPE_TO_CATEGORY = {
@@ -89,7 +107,11 @@ const TYPE_TO_CATEGORY = {
   [NOTIFICATION_TYPES.LEAVE_REJECTED]: NOTIFICATION_CATEGORIES.RESULT,
   [NOTIFICATION_TYPES.OVERTIME_APPROVED]: NOTIFICATION_CATEGORIES.RESULT,
   [NOTIFICATION_TYPES.OVERTIME_REJECTED]: NOTIFICATION_CATEGORIES.RESULT,
-  [NOTIFICATION_TYPES.APPROVAL_TODO]: NOTIFICATION_CATEGORIES.APPROVAL
+  [NOTIFICATION_TYPES.APPROVAL_TODO]: NOTIFICATION_CATEGORIES.APPROVAL,
+  [NOTIFICATION_TYPES.DEPT_TRANSFER]: NOTIFICATION_CATEGORIES.ORG,
+  [NOTIFICATION_TYPES.EMPLOYEE_TRANSFER]: NOTIFICATION_CATEGORIES.ORG,
+  [NOTIFICATION_TYPES.APPROVER_CHANGED]: NOTIFICATION_CATEGORIES.ORG,
+  [NOTIFICATION_TYPES.SCHEDULE_MIGRATED]: NOTIFICATION_CATEGORIES.ORG
 }
 
 function generateMockNotifications(employeeId) {
@@ -544,6 +566,99 @@ export const useNotificationStore = defineStore('notification', {
         actionLabel: '去审批'
       }
       return this.addNotification(notification)
+    },
+
+    generateDeptTransferNotification(employeeId, oldDeptName, newDeptName, reason = '') {
+      const content = reason
+        ? `您的所属部门已从「${oldDeptName}」调整为「${newDeptName}」。调整原因：${reason}`
+        : `您的所属部门已从「${oldDeptName}」调整为「${newDeptName}」。`
+      const notification = {
+        type: NOTIFICATION_TYPES.DEPT_TRANSFER,
+        category: NOTIFICATION_CATEGORIES.ORG,
+        employeeId,
+        title: '部门调整通知',
+        content,
+        date: new Date().toISOString().split('T')[0],
+        extra: {
+          oldDeptName,
+          newDeptName,
+          reason
+        },
+        actionable: false
+      }
+      return this.addNotification(notification)
+    },
+
+    generateEmployeeTransferNotification(employeeId, transferType, fromDept, toDept, fromPosition, toPosition, transferDate) {
+      const notification = {
+        type: NOTIFICATION_TYPES.EMPLOYEE_TRANSFER,
+        category: NOTIFICATION_CATEGORIES.ORG,
+        employeeId,
+        title: '人事调动通知',
+        content: `您已于 ${transferDate} ${transferType}：从「${fromDept} - ${fromPosition}」调动至「${toDept} - ${toPosition}」。`,
+        date: transferDate,
+        extra: {
+          transferType,
+          fromDept,
+          toDept,
+          fromPosition,
+          toPosition,
+          transferDate
+        },
+        actionable: false
+      }
+      return this.addNotification(notification)
+    },
+
+    generateApproverChangedNotification(employeeId, oldApproverName, newApproverName, changeReason = '') {
+      const content = changeReason
+        ? `您的审批人已从「${oldApproverName}」变更为「${newApproverName}」。变更原因：${changeReason}`
+        : `您的审批人已从「${oldApproverName}」变更为「${newApproverName}」。`
+      const notification = {
+        type: NOTIFICATION_TYPES.APPROVER_CHANGED,
+        category: NOTIFICATION_CATEGORIES.ORG,
+        employeeId,
+        title: '审批人变更通知',
+        content,
+        date: new Date().toISOString().split('T')[0],
+        extra: {
+          oldApproverName,
+          newApproverName,
+          changeReason
+        },
+        actionable: false
+      }
+      return this.addNotification(notification)
+    },
+
+    generateScheduleMigratedNotification(employeeId, oldDeptName, newDeptName, migratedMonths = []) {
+      const monthsStr = migratedMonths.length > 0 ? migratedMonths.join('、') : '后续月份'
+      const notification = {
+        type: NOTIFICATION_TYPES.SCHEDULE_MIGRATED,
+        category: NOTIFICATION_CATEGORIES.ORG,
+        employeeId,
+        title: '排班已同步迁移',
+        content: `由于部门从「${oldDeptName}」调整至「${newDeptName}」，您的${monthsStr}排班已自动迁移至新部门模板，请留意排班变化。`,
+        date: new Date().toISOString().split('T')[0],
+        extra: {
+          oldDeptName,
+          newDeptName,
+          migratedMonths
+        },
+        actionable: true,
+        actionType: 'view_schedule',
+        actionLabel: '查看排班'
+      }
+      return this.addNotification(notification)
+    },
+
+    batchNotify(employeeIds, generator) {
+      const results = []
+      employeeIds.forEach(empId => {
+        const notif = generator(empId)
+        if (notif) results.push(notif)
+      })
+      return results
     }
   }
 })

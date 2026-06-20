@@ -1,6 +1,10 @@
 import { defineStore } from 'pinia'
 import { employees as mockEmployees } from '@/data/employees'
 import { getEmployees, setEmployees, getCurrentUser, setCurrentUser } from '@/utils/storage'
+import { useScheduleStore } from '@/store/schedule'
+import { useAttendanceStore } from '@/store/attendance'
+import { useNotificationStore } from '@/store/notification'
+import { useOrganizationStore } from '@/store/organization'
 
 export const useEmployeeStore = defineStore('employee', {
   state: () => ({
@@ -142,20 +146,31 @@ export const useEmployeeStore = defineStore('employee', {
       const employee = this.getEmployeeById(employeeId)
       if (!employee) return null
 
+      const scheduleStore = useScheduleStore()
+      const attendanceStore = useAttendanceStore()
+      const notificationStore = useNotificationStore()
+
       const toDept = organizationStore.getDepartmentById(transferData.toDepartmentId)
       const toPos = organizationStore.getPositionById(transferData.toPositionId)
+
+      const oldDeptId = employee.departmentId
+      const oldDeptName = employee.department
+      const oldPosition = employee.position
+      const newDeptId = transferData.toDepartmentId
+      const newDeptName = toDept ? toDept.name : transferData.toDepartment
+      const newPosition = toPos ? toPos.name : transferData.toPosition
 
       const record = {
         employeeId,
         employeeName: employee.name,
-        fromDepartmentId: employee.departmentId,
-        fromDepartment: employee.department,
+        fromDepartmentId: oldDeptId,
+        fromDepartment: oldDeptName,
         fromPositionId: employee.positionId,
-        fromPosition: employee.position,
-        toDepartmentId: transferData.toDepartmentId,
-        toDepartment: toDept ? toDept.name : transferData.toDepartment,
+        fromPosition: oldPosition,
+        toDepartmentId: newDeptId,
+        toDepartment: newDeptName,
         toPositionId: transferData.toPositionId,
-        toPosition: toPos ? toPos.name : transferData.toPosition,
+        toPosition: newPosition,
         transferType: transferData.transferType,
         transferDate: transferData.transferDate,
         reason: transferData.reason,
@@ -167,11 +182,72 @@ export const useEmployeeStore = defineStore('employee', {
       organizationStore.addTransferRecord(record)
 
       this.updateEmployee(employeeId, {
-        departmentId: transferData.toDepartmentId,
-        department: toDept ? toDept.name : transferData.toDepartment,
+        departmentId: newDeptId,
+        department: newDeptName,
         positionId: transferData.toPositionId,
-        position: toPos ? toPos.name : transferData.toPosition
+        position: newPosition
       })
+
+      if (oldDeptId !== newDeptId) {
+        const migrateResult = scheduleStore.migrateEmployeeSchedule(
+          employeeId,
+          oldDeptId,
+          newDeptId,
+          newDeptName
+        )
+
+        attendanceStore.updateRequestsDepartment(
+          employeeId,
+          oldDeptId,
+          newDeptId,
+          newDeptName
+        )
+
+        const oldDept = organizationStore.getDepartmentById(oldDeptId)
+        const oldManagerId = oldDept?.managerId
+        const oldManager = oldManagerId ? this.getEmployeeById(oldManagerId) : null
+
+        const newManagerId = toDept?.managerId
+        const newManager = newManagerId ? this.getEmployeeById(newManagerId) : null
+
+        if (newManagerId && oldManagerId !== newManagerId) {
+          attendanceStore.reassignPendingApprovalsForEmployee(
+            employeeId,
+            oldManagerId,
+            newManagerId,
+            newManager?.name || '新审批人',
+            transferData.transferType
+          )
+        }
+
+        notificationStore.generateEmployeeTransferNotification(
+          employeeId,
+          transferData.transferType,
+          oldDeptName,
+          newDeptName,
+          oldPosition,
+          newPosition,
+          transferData.transferDate
+        )
+
+        if (migrateResult.migratedMonths && migrateResult.migratedMonths.length > 0) {
+          notificationStore.generateScheduleMigratedNotification(
+            employeeId,
+            oldDeptName,
+            newDeptName,
+            migrateResult.migratedMonths
+          )
+        }
+
+        if (newManager && oldManagerId !== newManagerId) {
+          notificationStore.generateApproverChangedNotification(
+            employeeId,
+            oldManager?.name || '原审批人',
+            newManager.name,
+            transferData.transferType
+          )
+        }
+      }
 
       return record
     },
