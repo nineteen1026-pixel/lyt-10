@@ -384,7 +384,7 @@ export const useAttendanceStore = defineStore('attendance', {
     checkIn(employeeId, shiftType = null) {
       const employeeStore = useEmployeeStore()
       const employee = employeeStore.getEmployeeById(employeeId)
-      if (employee && (employee.status === '已离职' || employee.status === '离职中')) {
+      if (employee && employee.status === '已离职') {
         this.showToast('该员工已离职，打卡权限已冻结', 'error')
         return false
       }
@@ -432,7 +432,7 @@ export const useAttendanceStore = defineStore('attendance', {
     checkOut(employeeId, shiftType = null) {
       const employeeStore = useEmployeeStore()
       const employee = employeeStore.getEmployeeById(employeeId)
-      if (employee && (employee.status === '已离职' || employee.status === '离职中')) {
+      if (employee && employee.status === '已离职') {
         this.showToast('该员工已离职，打卡权限已冻结', 'error')
         return false
       }

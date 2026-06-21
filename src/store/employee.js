@@ -388,7 +388,7 @@ export const useEmployeeStore = defineStore('employee', {
       const dailySalary = record.annualLeaveCompensation.dailySalary
       record.annualLeaveCompensation = {
         ...record.annualLeaveCompensation,
-        remainingDays: annualBalance.remaining,
+        remainingDays: annualBalance.available,
         compensableDays,
         totalCompensation: Math.round(compensableDays * dailySalary * 100) / 100
       }

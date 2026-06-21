@@ -124,6 +124,7 @@ export const useVacationStore = defineStore('vacation', {
       return {
         total,
         used,
+        remaining,
         pending: pendingDays,
         available: Math.max(0, remaining - pendingDays)
       }
