@@ -5,6 +5,7 @@ import { getCheckInStatus, getCheckOutStatus, getDayStatus, generateMonthCalenda
 import { VACATION_TYPES } from '@/utils/vacation'
 import { useVacationStore } from '@/store/vacation'
 import { useScheduleStore } from '@/store/schedule'
+import { useEmployeeStore } from '@/store/employee'
 import { isBusinessTripFinalApproved, isDateInTrip } from '@/utils/business-trip'
 import { useNotificationStore, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '@/store/notification'
 
@@ -381,6 +382,13 @@ export const useAttendanceStore = defineStore('attendance', {
     },
 
     checkIn(employeeId, shiftType = null) {
+      const employeeStore = useEmployeeStore()
+      const employee = employeeStore.getEmployeeById(employeeId)
+      if (employee && (employee.status === '已离职' || employee.status === '离职中')) {
+        this.showToast('该员工已离职，打卡权限已冻结', 'error')
+        return false
+      }
+
       const today = getToday()
       const now = getNow()
       const currentTime = getCurrentTime()
@@ -422,6 +430,13 @@ export const useAttendanceStore = defineStore('attendance', {
     },
 
     checkOut(employeeId, shiftType = null) {
+      const employeeStore = useEmployeeStore()
+      const employee = employeeStore.getEmployeeById(employeeId)
+      if (employee && (employee.status === '已离职' || employee.status === '离职中')) {
+        this.showToast('该员工已离职，打卡权限已冻结', 'error')
+        return false
+      }
+
       const today = getToday()
       const now = getNow()
       const currentTime = getCurrentTime()

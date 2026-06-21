@@ -16,7 +16,8 @@ const STORAGE_KEYS = {
   NOTIFICATION_READ_STATUS: 'notification_read_status',
   DEPARTMENTS_TREE: 'org_departments_tree',
   POSITIONS: 'org_positions',
-  TRANSFER_RECORDS: 'org_transfer_records'
+  TRANSFER_RECORDS: 'org_transfer_records',
+  RESIGNATION_RECORDS: 'org_resignation_records'
 }
 
 export function getStorage(key, defaultValue = null) {
@@ -195,6 +196,14 @@ export function getTransferRecords() {
 
 export function setTransferRecords(records) {
   return setStorage(STORAGE_KEYS.TRANSFER_RECORDS, records)
+}
+
+export function getResignationRecords() {
+  return getStorage(STORAGE_KEYS.RESIGNATION_RECORDS, [])
+}
+
+export function setResignationRecords(records) {
+  return setStorage(STORAGE_KEYS.RESIGNATION_RECORDS, records)
 }
 
 export { STORAGE_KEYS }

@@ -230,11 +230,32 @@ export const TRANSFER_TYPES = [
   { value: '借调', label: '临时借调' }
 ]
 
+export const RESIGNATION_TYPES = [
+  { value: 'voluntary', label: '主动离职' },
+  { value: 'dismissal', label: '辞退' },
+  { value: 'retirement', label: '退休' },
+  { value: 'contract_expire', label: '合同到期' },
+  { value: 'other', label: '其他' }
+]
+
+export const RESIGNATION_REASONS = [
+  { value: 'personal', label: '个人原因' },
+  { value: 'career', label: '职业发展' },
+  { value: 'compensation', label: '薪资待遇' },
+  { value: 'relocation', label: '异地搬迁' },
+  { value: 'health', label: '健康原因' },
+  { value: 'performance', label: '绩效不达标' },
+  { value: 'violation', label: '违纪违规' },
+  { value: 'restructure', label: '组织架构调整' },
+  { value: 'other', label: '其他' }
+]
+
 export const EMPLOYEE_STATUS = [
   { value: '在职', label: '在职' },
   { value: '试用期', label: '试用期' },
   { value: '休假', label: '休假中' },
-  { value: '离职', label: '已离职' }
+  { value: '离职中', label: '离职中' },
+  { value: '已离职', label: '已离职' }
 ]
 
 export const EDUCATION_LIST = [

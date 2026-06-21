@@ -42,6 +42,20 @@
           <div class="stat-label">调岗记录</div>
         </div>
       </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-orange">🚪</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ employeeStats.resigning }}</div>
+          <div class="stat-label">离职办理中</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-red">👋</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ employeeStats.resigned }}</div>
+          <div class="stat-label">已离职</div>
+        </div>
+      </div>
     </div>
 
     <div class="main-layout">
@@ -95,7 +109,8 @@
               <span class="emp-avatar">{{ emp.avatar }}</span>
               <span v-if="emp.status === '试用期'" class="status-dot status-probation"></span>
               <span v-else-if="emp.status === '休假'" class="status-dot status-vacation"></span>
-              <span v-else-if="emp.status === '离职'" class="status-dot status-left"></span>
+              <span v-else-if="emp.status === '离职中'" class="status-dot status-resigning"></span>
+              <span v-else-if="emp.status === '离职' || emp.status === '已离职'" class="status-dot status-left"></span>
               <span v-else class="status-dot status-active"></span>
             </div>
             <div class="emp-info">
@@ -153,6 +168,13 @@
             <div class="detail-actions">
               <button class="btn btn-ghost" @click="openTransferModal">
                 <span>🔄 调岗</span>
+              </button>
+              <button
+                v-if="selectedEmployee.status === '在职' || selectedEmployee.status === '试用期'"
+                class="btn btn-danger-ghost"
+                @click="openResignModal"
+              >
+                <span>🚪 离职</span>
               </button>
               <button class="btn btn-ghost" @click="openEditModal(selectedEmployee)">
                 <span>✏️ 编辑</span>
@@ -299,6 +321,112 @@
                   <div v-if="record.remark" class="transfer-remark">
                     <span class="remark-label">备注：</span>
                     <span class="remark-text">{{ record.remark }}</span>
+                  </div>
+                  <div class="transfer-operator">
+                    操作人：{{ record.operatorName || '系统' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="activeTab === 'resignation'" class="tab-content">
+            <div class="section-header-row">
+              <div class="section-title">离职记录</div>
+              <button
+                v-if="selectedEmployee.status === '在职' || selectedEmployee.status === '试用期'"
+                class="btn btn-ghost btn-sm"
+                @click="openResignModal"
+              >
+                <span>➕ 发起离职</span>
+              </button>
+            </div>
+            <div v-if="empResignationRecords.length === 0" class="empty-records">
+              <span class="empty-icon">📭</span>
+              <p>暂无离职记录</p>
+            </div>
+            <div v-else class="timeline">
+              <div
+                v-for="record in empResignationRecords"
+                :key="record.id"
+                class="timeline-item"
+              >
+                <div class="timeline-dot" :class="getResignStatusClass(record.status)"></div>
+                <div class="timeline-content">
+                  <div class="timeline-header">
+                    <span class="resign-status-tag" :class="'status-' + getResignStatusClass(record.status)">
+                      {{ record.status === 'pending' ? '待确认' : record.status === 'effective' ? '已生效' : '已撤回' }}
+                    </span>
+                    <span class="timeline-date">{{ record.applyDate }}</span>
+                  </div>
+                  <div class="resign-info-row">
+                    <span class="resign-label">离职类型：</span>
+                    <span class="resign-value">{{ getResignTypeLabel(record.resignationType) }}</span>
+                  </div>
+                  <div class="resign-info-row">
+                    <span class="resign-label">离职原因：</span>
+                    <span class="resign-value">{{ getResignReasonLabel(record.resignationReason) }}</span>
+                  </div>
+                  <div v-if="record.resignationReasonDetail" class="resign-info-row">
+                    <span class="resign-label">原因详情：</span>
+                    <span class="resign-value">{{ record.resignationReasonDetail }}</span>
+                  </div>
+                  <div class="resign-info-row">
+                    <span class="resign-label">申请日期：</span>
+                    <span class="resign-value">{{ record.applyDate }}</span>
+                  </div>
+                  <div class="resign-info-row">
+                    <span class="resign-label">预计最后工作日：</span>
+                    <span class="resign-value">{{ record.expectedLastDay }}</span>
+                  </div>
+                  <div v-if="record.actualLastDay" class="resign-info-row">
+                    <span class="resign-label">实际最后工作日：</span>
+                    <span class="resign-value">{{ record.actualLastDay }}</span>
+                  </div>
+                  <div v-if="record.annualLeaveCompensation" class="resign-summary-box">
+                    <div class="resign-comp-title">年假补偿结算</div>
+                    <div class="resign-compensation-grid">
+                      <div class="resign-comp-item">
+                        <span class="comp-label">剩余天数</span>
+                        <span class="comp-value">{{ record.annualLeaveCompensation.remainingDays }}天</span>
+                      </div>
+                      <div class="resign-comp-item">
+                        <span class="comp-label">日薪标准</span>
+                        <span class="comp-value">¥{{ record.annualLeaveCompensation.dailySalary }}</span>
+                      </div>
+                      <div class="resign-comp-item">
+                        <span class="comp-label">可补偿天数</span>
+                        <span class="comp-value">{{ record.annualLeaveCompensation.compensableDays }}天</span>
+                      </div>
+                      <div class="resign-comp-item">
+                        <span class="comp-label">补偿总额</span>
+                        <span class="comp-value comp-total">¥{{ record.annualLeaveCompensation.totalCompensation }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="record.handoverNotes" class="resign-info-row">
+                    <span class="resign-label">工作交接：</span>
+                    <span class="resign-value">{{ record.handoverNotes }}</span>
+                  </div>
+                  <div v-if="record.remark" class="resign-info-row">
+                    <span class="resign-label">备注：</span>
+                    <span class="resign-value">{{ record.remark }}</span>
+                  </div>
+                  <div v-if="record.status === 'effective' && record.frozenAt" class="resign-info-row">
+                    <span class="resign-label">考勤冻结：</span>
+                    <span class="resign-value">{{ new Date(record.frozenAt).toLocaleString() }}</span>
+                  </div>
+                  <div v-if="record.status === 'effective' && record.settledAt" class="resign-info-row">
+                    <span class="resign-label">结算时间：</span>
+                    <span class="resign-value">{{ new Date(record.settledAt).toLocaleString() }}</span>
+                  </div>
+                  <div v-if="record.status === 'pending'" class="resign-action-bar">
+                    <button class="btn btn-danger btn-sm" @click="openResignConfirmModal(record.id)">
+                      确认生效
+                    </button>
+                    <button class="btn btn-ghost btn-sm" @click="cancelResignation(record.id)">
+                      撤回
+                    </button>
                   </div>
                   <div class="transfer-operator">
                     操作人：{{ record.operatorName || '系统' }}
@@ -513,6 +641,95 @@
         </div>
       </div>
     </Transition>
+
+    <Transition name="modal">
+      <div v-if="showResignModal" class="modal-overlay" @click.self="showResignModal = false">
+        <div class="modal modal-lg">
+          <div class="modal-header">
+            <h3 class="modal-title">发起离职 - {{ selectedEmployee?.name }}</h3>
+            <button class="modal-close" @click="showResignModal = false">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-section">
+              <div class="form-section-title">离职信息</div>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label required">离职类型</label>
+                  <select v-model="resignForm.resignationType" class="form-select">
+                    <option value="">请选择类型</option>
+                    <option v-for="t in RESIGNATION_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label required">离职原因</label>
+                  <select v-model="resignForm.resignationReason" class="form-select">
+                    <option value="">请选择原因</option>
+                    <option v-for="r in RESIGNATION_REASONS" :key="r.value" :value="r.value">{{ r.label }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">原因详情</label>
+                <textarea v-model="resignForm.resignationReasonDetail" class="form-textarea" rows="2" placeholder="请补充说明离职原因"></textarea>
+              </div>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label required">申请日期</label>
+                  <input v-model="resignForm.applyDate" type="date" class="form-input" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label required">预计最后工作日</label>
+                  <input v-model="resignForm.expectedLastDay" type="date" class="form-input" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">日薪标准</label>
+                <input v-model.number="resignForm.dailySalary" type="number" class="form-input" placeholder="0" min="0" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">工作交接说明</label>
+                <textarea v-model="resignForm.handoverNotes" class="form-textarea" rows="2" placeholder="请说明工作交接安排"></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">备注</label>
+                <textarea v-model="resignForm.remark" class="form-textarea" rows="2" placeholder="其他备注信息"></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" @click="showResignModal = false">取消</button>
+            <button class="btn btn-danger" @click="submitResignation">确认发起离职</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="modal">
+      <div v-if="showResignConfirmModal" class="modal-overlay" @click.self="showResignConfirmModal = false">
+        <div class="modal modal-sm">
+          <div class="modal-header">
+            <h3 class="modal-title">⚠️ 确认离职生效</h3>
+            <button class="modal-close" @click="showResignConfirmModal = false">✕</button>
+          </div>
+          <div class="modal-body">
+            <p>确定将员工「<strong>{{ selectedEmployee?.name }}</strong>」标记为离职生效吗？</p>
+            <p class="warning-text">⚠️ 生效后将冻结考勤打卡，并结算未休年假补偿</p>
+            <div class="form-group">
+              <label class="form-label required">实际最后工作日</label>
+              <input v-model="resignConfirmActualLastDay" type="date" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">备注</label>
+              <textarea v-model="resignConfirmRemark" class="form-textarea" rows="2" placeholder="补充说明"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" @click="showResignConfirmModal = false">取消</button>
+            <button class="btn btn-danger" @click="confirmResignation">确认生效</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -524,9 +741,12 @@ import {
   ROLE_LABELS,
   LEVEL_LABELS,
   TRANSFER_TYPES,
+  RESIGNATION_TYPES,
+  RESIGNATION_REASONS,
   EMPLOYEE_STATUS,
   EDUCATION_LIST
 } from '@/data/employees'
+import { useVacationStore } from '@/store/vacation'
 
 const organizationStore = useOrganizationStore()
 const employeeStore = useEmployeeStore()
@@ -540,12 +760,18 @@ const activeTab = ref('basic')
 const showEmpModal = ref(false)
 const showTransferModal = ref(false)
 const showDeleteConfirm = ref(false)
+const showResignModal = ref(false)
+const showResignConfirmModal = ref(false)
 const isEmpEdit = ref(false)
 const deleteTarget = ref(null)
+const resignConfirmRecordId = ref(null)
+const resignConfirmActualLastDay = ref('')
+const resignConfirmRemark = ref('')
 
 const tabs = [
   { key: 'basic', label: '基本档案' },
-  { key: 'transfer', label: '调岗记录' }
+  { key: 'transfer', label: '调岗记录' },
+  { key: 'resignation', label: '离职记录' }
 ]
 
 const avatarOptions = [
@@ -581,6 +807,17 @@ const transferForm = reactive({
   remark: ''
 })
 
+const resignForm = reactive({
+  resignationType: '',
+  resignationReason: '',
+  resignationReasonDetail: '',
+  applyDate: '',
+  expectedLastDay: '',
+  dailySalary: 0,
+  handoverNotes: '',
+  remark: ''
+})
+
 const flatDepartments = computed(() => organizationStore.flatDepartments)
 const sortedPositions = computed(() => organizationStore.sortedPositions)
 const employeeStats = computed(() => employeeStore.employeeStats)
@@ -612,6 +849,13 @@ const empTransferRecords = computed(() => {
   return organizationStore.getTransferRecordsByEmployee(selectedEmpId.value)
 })
 
+const vacationStore = computed(() => useVacationStore())
+
+const empResignationRecords = computed(() => {
+  if (!selectedEmpId.value) return []
+  return employeeStore.getResignationRecordByEmployee(selectedEmpId.value)
+})
+
 function selectEmployee(id) {
   selectedEmpId.value = id
   activeTab.value = 'basic'
@@ -622,7 +866,9 @@ function getStatusClass(status) {
     '在职': 'active',
     '试用期': 'probation',
     '休假': 'vacation',
-    '离职': 'left'
+    '离职中': 'resigning',
+    '离职': 'left',
+    '已离职': 'left'
   }
   return map[status] || 'active'
 }
@@ -845,6 +1091,88 @@ function doDeleteEmployee() {
   deleteTarget.value = null
 }
 
+function openResignModal() {
+  if (!selectedEmployee.value) return
+  Object.assign(resignForm, {
+    resignationType: '',
+    resignationReason: '',
+    resignationReasonDetail: '',
+    applyDate: new Date().toISOString().split('T')[0],
+    expectedLastDay: '',
+    dailySalary: 0,
+    handoverNotes: '',
+    remark: ''
+  })
+  showResignModal.value = true
+}
+
+function submitResignation() {
+  if (!selectedEmployee.value) return
+  if (!resignForm.resignationType) {
+    alert('请选择离职类型')
+    return
+  }
+  if (!resignForm.resignationReason) {
+    alert('请选择离职原因')
+    return
+  }
+  if (!resignForm.applyDate) {
+    alert('请选择申请日期')
+    return
+  }
+  if (!resignForm.expectedLastDay) {
+    alert('请选择预计最后工作日')
+    return
+  }
+  employeeStore.processResignation(selectedEmployee.value.id, { ...resignForm })
+  showResignModal.value = false
+  activeTab.value = 'resignation'
+}
+
+function openResignConfirmModal(recordId) {
+  resignConfirmRecordId.value = recordId
+  resignConfirmActualLastDay.value = ''
+  resignConfirmRemark.value = ''
+  showResignConfirmModal.value = true
+}
+
+function confirmResignation() {
+  if (!resignConfirmRecordId.value) return
+  if (!resignConfirmActualLastDay.value) {
+    alert('请选择实际最后工作日')
+    return
+  }
+  employeeStore.confirmResignation(resignConfirmRecordId.value, {
+    actualLastDay: resignConfirmActualLastDay.value,
+    remark: resignConfirmRemark.value
+  })
+  showResignConfirmModal.value = false
+  resignConfirmRecordId.value = null
+}
+
+function cancelResignation(recordId) {
+  employeeStore.cancelResignation(recordId)
+}
+
+function getResignStatusClass(status) {
+  const map = {
+    pending: 'resigning',
+    effective: 'left',
+    cancelled: 'cancelled'
+  }
+  return map[status] || 'resigning'
+}
+
+function getResignTypeLabel(value) {
+  const item = RESIGNATION_TYPES.find(t => t.value === value)
+  return item ? item.label : value
+}
+
+function getResignReasonLabel(value) {
+  const item = RESIGNATION_REASONS.find(r => r.value === value)
+  return item ? item.label : value
+}
+
 watch(() => employeeStore.employees, () => {
   if (selectedEmpId.value && !employeeStore.getEmployeeById(selectedEmpId.value)) {
     selectedEmpId.value = null
@@ -972,6 +1300,7 @@ onMounted(() => {
 .stat-icon-green { background: linear-gradient(135deg, #dcfce7, #bbf7d0); }
 .stat-icon-purple { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
 .stat-icon-orange { background: linear-gradient(135deg, #ffedd5, #fed7aa); }
+.stat-icon-red { background: linear-gradient(135deg, #fee2e2, #fecaca); }
 
 .stat-value {
   font-size: 22px;
@@ -1118,6 +1447,7 @@ onMounted(() => {
 .status-dot.status-active { background: #52c41a; }
 .status-dot.status-probation { background: #faad14; }
 .status-dot.status-vacation { background: #1890ff; }
+.status-dot.status-resigning { background: #f59e0b; }
 .status-dot.status-left { background: #bfbfbf; }
 
 .emp-info {
@@ -1243,6 +1573,7 @@ onMounted(() => {
 .status-tag.status-active { background: #dcfce7; color: #15803d; }
 .status-tag.status-probation { background: #fef3c7; color: #a16207; }
 .status-tag.status-vacation { background: #dbeafe; color: #1e40af; }
+.status-tag.status-resigning { background: #fef3c7; color: #b45309; }
 .status-tag.status-left { background: #f3f4f6; color: #6b7280; }
 
 .profile-dept {
@@ -1719,5 +2050,92 @@ onMounted(() => {
   .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
   .stats-row { grid-template-columns: repeat(2, 1fr); }
   .detail-header { flex-direction: column; }
+}
+
+.resign-status-tag {
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.resign-status-tag.status-resigning { background: #fef3c7; color: #b45309; }
+.resign-status-tag.status-left { background: #fee2e2; color: #991b1b; }
+.resign-status-tag.status-cancelled { background: #f3f4f6; color: #6b7280; }
+
+.timeline-dot.resigning { background: #f59e0b; box-shadow: 0 0 0 2px #f59e0b; }
+.timeline-dot.left { background: #ef4444; box-shadow: 0 0 0 2px #ef4444; }
+.timeline-dot.cancelled { background: #9ca3af; box-shadow: 0 0 0 2px #9ca3af; }
+
+.resign-info-row {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  line-height: 1.6;
+  display: flex;
+  gap: 4px;
+}
+
+.resign-label {
+  color: var(--text-light);
+  flex-shrink: 0;
+}
+
+.resign-value {
+  color: var(--text-secondary);
+}
+
+.resign-summary-box {
+  margin-top: 10px;
+  padding: 12px;
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  border-radius: 10px;
+  border: 1px solid #fde68a;
+}
+
+.resign-comp-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 8px;
+}
+
+.resign-compensation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.resign-comp-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: white;
+  border-radius: 6px;
+}
+
+.comp-label {
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+.comp-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.comp-value.comp-total {
+  color: #dc2626;
+  font-size: 15px;
+}
+
+.resign-action-bar {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-light);
 }
 </style>
