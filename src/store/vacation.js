@@ -481,6 +481,64 @@ export const useVacationStore = defineStore('vacation', {
       return { success: true, grant }
     },
 
+    settleResignation(employeeId, days, operator = 'system') {
+      if (days <= 0) {
+        return { success: true, settledDays: 0, settledGrants: [] }
+      }
+
+      const validGrants = this.getEmployeeGrants(employeeId, 'annual', false)
+        .sort((a, b) => new Date(a.expireDate) - new Date(b.expireDate))
+
+      const balance = this.getEmployeeBalance(employeeId, 'annual')
+      if (balance.available < days) {
+        return { success: false, message: '年假可用天数不足，无法结算', available: balance.available }
+      }
+
+      let remainingToSettle = days
+      const settledGrants = []
+
+      for (const grant of validGrants) {
+        if (remainingToSettle <= 0) break
+
+        const settleAmount = Math.min(grant.remainingDays, remainingToSettle)
+        if (settleAmount <= 0) continue
+
+        grant.totalDays -= settleAmount
+        grant.remainingDays -= settleAmount
+        remainingToSettle -= settleAmount
+
+        settledGrants.push({
+          grantId: grant.id,
+          grantDescription: grant.description,
+          settledDays: settleAmount
+        })
+      }
+
+      const actualSettledDays = days - remainingToSettle
+
+      if (actualSettledDays < days) {
+        return { success: false, message: '年假额度扣减不完整，请检查额度状态' }
+      }
+
+      this.saveGrantsToStorage()
+
+      settledGrants.forEach(sg => {
+        this.recordAdjustment({
+          employeeId,
+          employeeName: validGrants.find(g => g.id === sg.grantId)?.employeeName,
+          vacationType: 'annual',
+          changeType: 'deduct',
+          days: sg.settledDays,
+          reason: 'resignation_settle',
+          description: `离职结算：未休年假${sg.settledDays}天折算补偿`,
+          operator,
+          relatedGrantId: sg.grantId
+        })
+      })
+
+      return { success: true, settledDays: actualSettledDays, settledGrants }
+    },
+
     recordAdjustment(data) {
       const adjustment = {
         id: generateAdjustmentRecordId(),

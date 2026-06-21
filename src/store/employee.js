@@ -12,7 +12,8 @@ export const useEmployeeStore = defineStore('employee', {
   state: () => ({
     employees: [],
     currentUser: null,
-    resignationRecords: []
+    resignationRecords: [],
+    toast: { show: false, message: '', type: 'success' }
   }),
 
   getters: {
@@ -135,6 +136,17 @@ export const useEmployeeStore = defineStore('employee', {
 
     saveToStorage() {
       setEmployees(this.employees)
+    },
+
+    showToast(message, type = 'success') {
+      this.toast = { show: true, message, type }
+      setTimeout(() => {
+        this.toast.show = false
+      }, 3000)
+    },
+
+    hideToast() {
+      this.toast.show = false
     },
 
     setCurrentUser(employee) {
@@ -376,6 +388,23 @@ export const useEmployeeStore = defineStore('employee', {
       const vacationStore = useVacationStore()
       const notificationStore = useNotificationStore()
 
+      const annualBalance = vacationStore.getEmployeeBalance(record.employeeId, 'annual')
+      const compensableDays = annualBalance.available
+      const dailySalary = record.annualLeaveCompensation.dailySalary
+      const totalCompensation = Math.round(compensableDays * dailySalary * 100) / 100
+
+      if (compensableDays > 0) {
+        const settleResult = vacationStore.settleResignation(
+          record.employeeId,
+          compensableDays,
+          this.currentUser?.id || 'system'
+        )
+        if (!settleResult.success) {
+          this.showToast(settleResult.message || '年假结算失败，离职未生效', 'error')
+          return null
+        }
+      }
+
       record.status = 'effective'
       record.actualLastDay = confirmData.actualLastDay || record.expectedLastDay
       record.effectiveAt = new Date().toISOString()
@@ -383,26 +412,11 @@ export const useEmployeeStore = defineStore('employee', {
 
       this.updateEmployee(record.employeeId, { status: '已离职' })
 
-      const annualBalance = vacationStore.getEmployeeBalance(record.employeeId, 'annual')
-      const compensableDays = annualBalance.available
-      const dailySalary = record.annualLeaveCompensation.dailySalary
       record.annualLeaveCompensation = {
         ...record.annualLeaveCompensation,
-        remainingDays: annualBalance.available,
+        remainingDays: compensableDays,
         compensableDays,
-        totalCompensation: Math.round(compensableDays * dailySalary * 100) / 100
-      }
-
-      if (compensableDays > 0) {
-        vacationStore.manualAdjust({
-          grantId: vacationStore.getEmployeeGrants(record.employeeId, 'annual', false)
-            .sort((a, b) => new Date(a.expireDate) - new Date(b.expireDate))[0]?.id,
-          changeType: 'deduct',
-          days: compensableDays,
-          reason: 'resignation_settle',
-          description: `离职结算：未休年假${compensableDays}天折算补偿`,
-          operator: this.currentUser?.id || 'system'
-        })
+        totalCompensation
       }
 
       record.frozenAt = new Date().toISOString()
@@ -415,17 +429,18 @@ export const useEmployeeStore = defineStore('employee', {
         category: 'hr',
         employeeId: record.employeeId,
         title: '离职生效通知',
-        content: `${record.employeeName} 离职已生效，打卡权限已冻结，未休年假${compensableDays}天已折算补偿 ¥${record.annualLeaveCompensation.totalCompensation}`,
+        content: `${record.employeeName} 离职已生效，打卡权限已冻结，未休年假${compensableDays}天已折算补偿 ¥${totalCompensation}`,
         date: new Date().toISOString().split('T')[0],
         extra: {
           resignationId: record.id,
           employeeId: record.employeeId,
           compensableDays,
-          totalCompensation: record.annualLeaveCompensation.totalCompensation
+          totalCompensation
         },
         actionable: false
       })
 
+      this.showToast('离职已生效，年假已结算', 'success')
       return record
     },
 

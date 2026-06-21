@@ -1142,12 +1142,14 @@ function confirmResignation() {
     alert('请选择实际最后工作日')
     return
   }
-  employeeStore.confirmResignation(resignConfirmRecordId.value, {
+  const result = employeeStore.confirmResignation(resignConfirmRecordId.value, {
     actualLastDay: resignConfirmActualLastDay.value,
     remark: resignConfirmRemark.value
   })
-  showResignConfirmModal.value = false
-  resignConfirmRecordId.value = null
+  if (result) {
+    showResignConfirmModal.value = false
+    resignConfirmRecordId.value = null
+  }
 }
 
 function cancelResignation(recordId) {
